@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MORSE_WAV(和文電報版)</title>
+    <style>
+        body {
+            font-family: "Arial", sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+            background-image: url('https://i.postimg.cc/jd8WQPFX/marumarumikann-image1.jpg'); /* 画像を背景として指定 */
+            background-size: cover; /* 背景画像を画面全体に合わせる */
+            background-position: center; /* 背景画像の位置を中央に配置 */
+            background-repeat: no-repeat; /* 背景画像が繰り返し表示されないように */
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: rgba(255, 255, 255, 0.8); /* 半透明の白背景 */
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin-top: 10px;
+        }
+
+        /* 追加したスタイル: メールアドレスの位置を右上に固定 */
+        .email-box {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body onload="loadContent()">
+    
+    <div id="content"></div>
+
+    <div class="container">
+        <h1>MORSE_WAV(和文電報版)</h1>
+        <h3>「電報を作成」ボタンを押すとひらがなの文章が作成されます。<br>入力欄にアルファベット(大文字か小文字)、ひらがな、カタカナ、数字(0から9)を入力<br>
+        「再生ボタン」を押すとWAVE音で入力したモールス音が再生<br>
+        「WAVをダウンロード」ボタンを押すと入力した内容のモールス音WAVファイルがダウンロード<br></h3>
+        
+        <textarea id="inputText" placeholder="テキストを入力"></textarea><br>
+
+        <label>速度 (CPM):</label>
+        <input type="number" id="speed" value="60" min="20" max="500">
+        <label>周波数 (Hz):</label>
+        <input type="number" id="frequency" value="400" min="300" max="1000"><br>
+
+        <button id="generateButton">電報を作成</button>
+        <button onclick="playMorse()">再生</button>
+        <button onclick="downloadWav()">WAVをダウンロード</button>
+    </div>
+
+    <script>
+    
+        // 辞書を定義（名前、駅名、列車番号、住所、本文など）
+        var dictionary = {
+            "names": ["わたなべけんじ", "たかはしゆうすけ", "いとうまり", "さとうあきこ", "たむらだいすけ", "やまもときよし", "きむらひろし", "たけだまさひろ", "ささきあゆみ", "すずきけんた"],
+            "stations": ["あおもりまるしんせん", "いわきえき", "さくらだいがくまえ", "おおさかきた", "はこだてえき", "しんこうえんえき", "せんだいまる", "しぶやえき", "こまええき", "くろすしえき"],
+            "train_numbers": ["ごろく せさん、よんに", "はちきゅう いちまる、さんに", "ごに せん、いちいち", "ろくご けいきゅう、ななに", "ななきゅう しちまる、ろくいち", "しちよん いちに、さんさん", "ごろく せん、にご", "いちご まる、よんろく", "ごにん けいきゅう、ろくまる", "あおきまるご、にごきゅう"],
+            "addresses": ["あおもりしひがしやまにしまちいちのさん", "いわきしおおみやまちよんばん", "さくらだいがくまえきたむら", "おおさかしほんまちにしちろうじ", "はこだてしきたみなみまち", "ちょうしみなみちょうに", "あいちしおおおか", "きょうとしあらおかまち", "ふくおかしひがしまち", "なごやしみなみじまち"],
+            "messages": {
+                "line1": [
+                    "ふるさとのやま、みどりのほし、はしりぬける?",
+                    "かわのせせらぎ、そよふくふう、はやくにげろ?",
+                    "あしたのひび、けしきのなかに[らた]",
+                    "ゆめのひび、まちのひび、やすらぎつつみこむ",
+                    "あおぞらのした、てんしのこえ、やさしくささやく",
+                    "いちばんぼし、ひかりのなかに、きらきらゆれる",
+                    "おおきなみどりのなかで、まよいながらもあるく",
+                    "よるのしろいきらめき、てんしのほほえみ",
+                    "わたしのきもち、あなたへつたえたい、あたたかなゆめ",
+                    "おひさまのした、わらってすすむ、しあわせなひび"
+                ],
+                "line2": [
+                    "としょかんのまえ、さくらのはな、きらきらひかる",
+                    "やまのうえに、こうこうとひかるたいよう、しあわせのきせつ",
+                    "みんなのえがお、すこしのおもいで、ひとりひとりのゆめ",
+                    "あたたかいきおく、わすれられないじかん、ほんとうのやさしさ",
+                    "ながれるみず、しぜんのうた、いきるちから",
+                    "てんにひかり、しんじつのうた、わらうみんな",
+                    "かぜのなか、こころおどる、しあわせをさがして",
+                    "たくさんのきおく、いろんなじかん、だれかとわかちあう",
+                    "ひかりのうえ、はなびのなか、しんじつをしる",
+                    "あたらしいみらい、あなたとともに、ゆめをおいかける"
+                ],
+                "line3": [
+                    "ひかりのなか、たくさんのえがお、あたたかいふれあい",
+                    "あしたのゆめ、てんしのわざ、ほほえみのきせつ",
+                    "ゆめのゆき、そらのうた、みんなのあい",
+                    "さくらのき、あたらしいはじまり、ほしのしたのねがいごと",
+                    "ひとしずくのしずく、ゆうきをあたえてくれる",
+                    "みどりのなか、あたらしいあさ、ほしをかかえて",
+                    "こころのなか、ひかりがともしびとなり、みんなをつなぐ",
+                    "たいようのした、つよくゆるやかに、みんなでまもりあう",
+                    "ゆめのはじまり、まよいのち、うみのそらをわけて",
+                    "しあわせのあしおと、ほしとともに、まぶしいひび"
+                ]
+            }
+        };
+
+        // 和数字に変換する関数
+        function toJapaneseNumerals(num) {
+            const kanjiDigits = ['◯', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+            return num.toString().split('').map(digit => kanjiDigits[parseInt(digit)]).join('');
+        }
+
+        // 電報のテンプレート
+        var telegraphTemplate = {
+            "station_phrase": "、{station} {train_number},\n{address}」 {name}[BT]",
+            "line1": "{line1_message}",
+            "line2": "{line2_message}",
+            "line3": "{line3_message}"
+        };
+
+        // ランダムに辞書から選択する関数
+        function getRandomItem(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+/*
+        function generateTelegraph() {
+            // 辞書からランダムに選択
+            var name = getRandomItem(dictionary["names"]);
+            var station = getRandomItem(dictionary["stations"]);
+            var trainNumber = getRandomItem(dictionary["train_numbers"]);
+            var address = getRandomItem(dictionary["addresses"]);
+            var line1_message = getRandomItem(dictionary["messages"]["line1"]);
+            var line2_message = getRandomItem(dictionary["messages"]["line2"]);
+            var line3_message = getRandomItem(dictionary["messages"]["line3"]);
+
+            // 電報本文の文字数を数えて和数字に変換
+            var totalLength = name.length + station.length + trainNumber.length + address.length + line1_message.length + line2_message.length + line3_message.length;
+
+
+
+// 辞書を使って電報文を生成
+var telegraph = totalLengthInKanji + "字 " + telegraphTemplate["station_phrase"]
+    .replace("{name}", name)
+    .replace("{station}", station)
+    .replace("{train_number}", trainNumber)
+    .replace("{address}", address);
+
+// 一行目の先頭に[ほれ]を追加
+telegraph += "\n[ほれ]" + telegraphTemplate["line1"].replace("{line1_message}", line1_message);
+
+// 二行目
+telegraph += telegraphTemplate["line2"].replace("{line2_message}", line2_message);
+
+// 三行目の最後に[らた]を追加
+telegraph += telegraphTemplate["line3"].replace("{line3_message}", line3_message) + "[らた]";
+
+
+            var totalLengthInKanji = toJapaneseNumerals(totalLength);
+
+            // 辞書を使って電報文を生成
+            var telegraph = totalLengthInKanji + "字、" + telegraphTemplate["station_phrase"]
+                .replace("{name}", name)
+                .replace("{station}", station)
+                .replace("{train_number}", trainNumber)
+                .replace("{address}", address);
+            
+            // 一行目の先頭に[ほれ]を追加
+            telegraph += "\n[ほれ]" + telegraphTemplate["line1"].replace("{line1_message}", line1_message);
+
+            // 二行目
+            telegraph += telegraphTemplate["line2"].replace("{line2_message}", line2_message);
+
+            // 三行目の最後に[らた]を追加
+            telegraph += telegraphTemplate["line3"].replace("{line3_message}", line3_message) + "[らた]";
+
+            // 出力エリアに電報を表示
+            document.getElementById("output").innerHTML = `<pre>${telegraph}</pre>`;
+        }
+
+        // ボタンがクリックされたときに電報を生成
+        document.getElementById("generateButton").onclick = generateTelegraph;    
+        
+            const randomMessage = sampleMessages[Math.floor(Math.random() * sampleMessages.length)];
+            document.getElementById("inputText").value = randomMessage;
+        });
+        */
+        
+        document.getElementById("generateButton").addEventListener("click", function() {
+            const sampleMessages = [
+                "おめでとう ございます ごたこう を おいのり します。",
+                "ごにゅうがく おめでとう ございます」 あらたな かどで を しゅくふく します」",
+                "おたんじょうび おめでとう ございます」 すばらしい いちねん に なります ように」",
+                "ごけっこん おめでとう ございます」 すえながい おしあわせ を ねがって います」",
+                "あたらしい しょくば で の ごかつやく を おいのり いたします」"
+            ];
+            const randomMessage = sampleMessages[Math.floor(Math.random() * sampleMessages.length)];
+            document.getElementById("inputText").value = randomMessage;
+        });
+
+        function playMorse() {
+            alert("モールス信号を再生します。\n" + document.getElementById("inputText").value);
+        }
+
+        function downloadWav() {
+            alert("WAVファイルをダウンロードします。\n" + document.getElementById("inputText").value);
+        }
+
+        function loadContent() {
+            document.getElementById("inputText").value = "";  // 初回ロード時にテキストエリアをクリア
+        }
+
+        function loadContent() {
+            const width = window.innerWidth;
+            const container = document.getElementById('content');
+            
+            if (width <= 768) {
+                // スマートフォン表示の場合
+            <!--
+            container.innerHTML = `  
+                    <h4>スマートフォン版</h4>
+                `;
+                -->
+            } else {
+           <!--
+                container.innerHTML = `
+             
+                    <h4>PC版</h4>
+                `;
+                -->
+            }
+        }
+        
+    
+        // モールス信号定義（英数字とひらがな、カタカナに対応）
+       // モールス信号定義（英数字とひらがな、カタカナに対応）
+        const morseCodeMap = {
+            'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.', 'G': '--.', 'H': '....',
+            'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---', 'P': '.--.',
+            'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-',
+            'Y': '-.--', 'Z': '--..', 
+            '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....',
+            '6': '-....', '7': '--...', '8': '---..', '9': '----.', '0': '-----', 
+           '１': '.----', '２': '..---', '３': '...--', '４': '....-', '５': '.....',
+            '６': '-....', '７': '--...', '８': '---..', '９': '----.', '０': '-----',   '一': '.-', '二': '..-', '三': '...-', '四': '....-', '五': '.....',
+            '六': '-....', '七': '-...', '八': '-..', '九': '-.', '〇': '-', 
+            ' ': '/', // 空白文字はスラッシュに対応
+            // ひらがな
+            'あ': '--.--', 'い': '.-', 'う': '..-', 'え': '-.---', 'お': '.-...',
+          'ぁ': '--.--', 'ぃ': '.-', 'ぅ': '..-', 'ぇ': '-.---', 'ぉ': '.-...',
+            'か': '.-..', 'き': '-.-..', 'く': '...-', 'け': '-.--', 'こ': '----',
+            'さ': '-.-.-', 'し': '--.-.', 'す': '---.-', 'せ': '.---.', 'そ': '---.',
+            'た': '-.', 'ち': '..-.', 'つ': '.--.', 'っ': '.--.', 'て': '.-.--', 'と': '..-..',
+            'な': '.-.', 'に': '-.-.', 'ぬ': '....', 'ね': '--.-', 'の': '..--',
+            'は': '-...', 'ひ': '--..-', 'ふ': '--..', 'へ': '.', 'ほ': '-..',
+            'ま': '-..-', 'み': '..-.-', 'む': '-', 'め': '-...-', 'も': '-..-.',
+            'や': '.--', 'ゆ': '-..--', 'よ': '--', 'ゃ': '.--', 'ゅ': '-..--', 'ょ': '--', 'ら': '...', 'り': '--.',
+            'る': '-.--.', 'れ': '---', 'ろ': '.-.-', 'わ': '-.-', 'ゐ': '.-..-',
+            'ゑ': '.--..', 'を': '.---', 'ん': '.-.-.', 'ー': '.--.-', '」': '.-.-..','?': '..--..','？': '..--..','゛':'..','゜':'..--.',
+            // カタカナ（大文字、半角も含む）
+            'ア': '--.--', 'イ': '.-', 'ウ': '..-', 'エ': '-.---', 'オ': '.-...',
+          'ァ': '--.--', 'ィ': '.-', 'ゥ': '..-', 'ェ': '-.---', 'ォ': '.-...',
+            'カ': '.-..', 'キ': '-.-..', 'ク': '...-', 'ケ': '-.--', 'コ': '----',
+            'サ': '-.-.-', 'シ': '--.-.', 'ス': '---.-', 'セ': '.---.', 'ソ': '---.',
+            'タ': '-.', 'チ': '..-.', 'ツ': '.--.', 'ッ': '.--.', 'テ': '.-.--', 'ト': '..-..',
+            'ナ': '.-.', 'ニ': '-.-.', 'ヌ': '....', 'ネ': '--.-', 'ノ': '..--',
+            'ハ': '-...', 'ヒ': '--..-', 'フ': '--..', 'ヘ': '.', 'ホ': '-..',
+            'マ': '-..-', 'ミ': '..-.-', 'ム': '-', 'メ': '-...-', 'モ': '-..-.',
+            'ヤ': '.--', 'ユ': '-..--', 'ヨ': '--','ャ': '.--', 'ュ': '-..--', 'ョ': '--',  'ラ': '...', 'リ': '--.',
+            'ル': '-.--.', 'レ': '---', 'ロ': '.-.-', 'ワ': '-.-', 'ヰ': '.-..-',
+            'ヱ': '.--..', 'ヲ': '.---', 'ン': '.-.-.', 'ー': '.--.-', '、': '.-.-.-',
+            // 半角カタカナ
+            'ｱ': '--.--', 'ｲ': '.-', 'ｳ': '..-', 'ｴ': '-.---', 'ｵ': '.-...',
+            'ｶ': '.-..', 'ｷ': '-.-..', 'ｸ': '...-', 'ｹ': '-.--', 'ｺ': '----',
+            'ｻ': '-.-.-', 'ｼ': '--.-.', 'ｽ': '---.-', 'ｾ': '.---.', 'ｿ': '---.',
+            'ﾀ': '-.', 'ﾁ': '..-.', 'ﾂ': '.--.', 'ﾃ': '.-.--', 'ﾄ': '..-..',
+            'ﾅ': '.-.', 'ﾆ': '-.-.', 'ﾇ': '....', 'ﾈ': '--.-', 'ﾉ': '..--',
+            'ﾊ': '-...', 'ﾋ': '--..-', 'ﾌ': '--..', 'ﾍ': '.', 'ﾎ': '-..',
+            'ﾏ': '-..-', 'ﾐ': '..-.-', 'ﾑ': '-', 'ﾒ': '-...-', 'ﾓ': '-..-.',
+            'ﾔ': '.--', 'ﾕ': '-..--', 'ﾖ': '--', 'ﾗ': '...', 'ﾘ': '--.',
+            'ﾙ': '-.--.', 'ﾚ': '---', 'ﾛ': '.-.-', 'ﾜ':'-.-','ｦ':'.---','ﾝ':'.-.-.','､':'.-.-.',  
+        };
+    // 特別なモールス符号マップ
+    const specialMorseMap = {
+        '[BT]': '-...-',
+        '[AR]': '.-.-.',
+        '[ほれ]': '-..---',
+        '[らた]': '...-.'
+    };
+        // 小文字を大文字に変換する関数
+        function toUpperCase(text) {
+            return text.toUpperCase();
+        }
+
+        function convertText(text) {
+            //const input = document.getElementById("inputText").value;
+            //input=text;
+            // 濁音・半濁音の対応表
+           // 濁点（全角゛: U+309B）、半濁点（全角゜: U+309C）
+            const DAKUTEN = "゛"; // 全角濁点
+            const HANDAKUTEN = "゜"; // 全角半濁点
+
+            // 濁音・半濁音の対応表
+            const dakutenMap = {
+                "が": "か" + DAKUTEN, "ぎ": "き" + DAKUTEN, "ぐ": "く" + DAKUTEN, "げ": "け" + DAKUTEN, "ご": "こ" + DAKUTEN,
+                "ざ": "さ" + DAKUTEN, "じ": "し" + DAKUTEN, "ず": "す" + DAKUTEN, "ぜ": "せ" + DAKUTEN, "ぞ": "そ" + DAKUTEN,
+                "だ": "た" + DAKUTEN, "ぢ": "ち" + DAKUTEN, "づ": "つ" + DAKUTEN, "で": "て" + DAKUTEN, "ど": "と" + DAKUTEN,
+                "ば": "は" + DAKUTEN, "び": "ひ" + DAKUTEN, "ぶ": "ふ" + DAKUTEN, "べ": "へ" + DAKUTEN, "ぼ": "ほ" + DAKUTEN,
+                "ぱ": "は" + HANDAKUTEN, "ぴ": "ひ" + HANDAKUTEN, "ぷ": "ふ" + HANDAKUTEN, "ぺ": "へ" + HANDAKUTEN, "ぽ": "ほ" + HANDAKUTEN,
+                
+                "ガ": "カ" + DAKUTEN, "ギ": "キ" + DAKUTEN, "グ": "ク" + DAKUTEN, "ゲ": "ケ" + DAKUTEN, "ゴ": "コ" + DAKUTEN,
+                "ザ": "サ" + DAKUTEN, "ジ": "シ" + DAKUTEN, "ズ": "ス" + DAKUTEN, "ゼ": "セ" + DAKUTEN, "ゾ": "ソ" + DAKUTEN,
+                "ダ": "タ" + DAKUTEN, "ヂ": "チ" + DAKUTEN, "ヅ": "ツ" + DAKUTEN, "デ": "テ" + DAKUTEN, "ド": "ト" + DAKUTEN,
+                "バ": "ハ" + DAKUTEN, "ビ": "ヒ" + DAKUTEN, "ブ": "フ" + DAKUTEN, "ベ": "ヘ" + DAKUTEN, "ボ": "ホ" + DAKUTEN,
+                "パ": "ハ" + HANDAKUTEN, "ピ": "ヒ" + HANDAKUTEN, "プ": "フ" + HANDAKUTEN, "ペ": "ヘ" + HANDAKUTEN, "ポ": "ホ" + HANDAKUTEN
+            };
+
+            // 入力文字列を変換
+            let output = "";
+            for (const char of text) {
+                output += dakutenMap[char] || char; // 変換可能なら変換、できなければそのまま
+                //text=output;
+            }
+
+            // 変換結果を console に出力（デバッグ用）
+            //console.log(text);
+            return output;
+}
+
+        // モールス信号を生成
+        function textToMorse(text) {
+        
+         let result = '';
+        let i = 0;
+
+        while (i < text.length) {
+            let found = false;
+
+            // 特別な符号のチェック
+            for (const key in specialMorseMap) {
+                if (text.startsWith(key, i)) {
+                    result += specialMorseMap[key] + ' ';
+                    i += key.length;
+                    found = true;
+                    break;
+                }
+            }
+
+            // 特別な符号が見つからなかった場合は通常の処理
+            if (!found) {
+                const char = text[i].toUpperCase();
+                if (morseCodeMap[char]) {
+                    result += morseCodeMap[char] + ' ';
+                }
+                i++;
+            }
+        }
+
+        return result.trim();       
+            //return toUpperCase(text).split('').map(char => morseCodeMap[char] || '').join(' ');
+        }
+
+        // 再生する関数
+        function playMorse() {
+            const text = document.getElementById('inputText').value;
+            //text=convertText(text); 
+            const morse = textToMorse(convertText(text));
+            const speed = parseFloat(document.getElementById('speed').value);
+            const freq = parseFloat(document.getElementById('frequency').value);
+            const dotTime = (60 / ((speed+50) * 50)) * 10; // ドットの時間
+
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            let time = audioCtx.currentTime;
+
+            // ビープ音を追加する関数
+            function addBeep(duration) {
+                const oscillator = audioCtx.createOscillator();
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                const gainNode = audioCtx.createGain();
+                gainNode.gain.setValueAtTime(1, time);
+                gainNode.gain.setValueAtTime(0, time + duration);
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start(time);
+                oscillator.stop(time + duration);
+                time += duration;
+            }
+
+            // サイレンスを追加する関数
+            function addSilence(duration) {
+                time += duration;
+            }
+
+            // モールス信号を解析して音を生成
+            for (let symbol of morse) {
+                if (symbol === '.') {
+                    addBeep(dotTime); // ドット音
+                } else if (symbol === '-') {
+                    addBeep(dotTime * 3); // ダッシュ音
+                }else if (symbol === ' '){
+                    addSilence(dotTime*2); // ダッシュ音
+                }
+                addSilence(dotTime); // ドットとダッシュの間の静音
+            }
+            //addSilence(dotTime*9);   
+        }
+
+// WAVファイルをダウンロードする関数
+function downloadWav() {
+    const text = document.getElementById('inputText').value;
+    const morse = textToMorse(convertText(text));
+    const speed = parseFloat(document.getElementById('speed').value);
+    const freq = parseFloat(document.getElementById('frequency').value);
+    const dotTime = (60 / (speed * 50)) * 10; // ドットの時間
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // モールス信号全体の長さを計算
+    let totalTime = 0;
+    for (let symbol of morse) {
+        if (symbol === '.') {
+            totalTime += dotTime; // ドット音の時間
+        } else if (symbol === '-') {
+            totalTime += dotTime * 3; // ダッシュ音の時間
+        }else if (symbol === ' ') {
+            totalTime += dotTime * 2; // 文字間の静音
+        }
+        totalTime += dotTime; // ドットとダッシュの間の静音
+    }
+
+    const bufferSize = totalTime * 44100; // バッファサイズを時間に合わせて計算
+    const buffer = audioCtx.createBuffer(1, bufferSize, 44100);
+    const channelData = buffer.getChannelData(0);
+
+    let time = 0;
+    let index = 0;
+
+    function addBeep(duration) {
+        for (let i = 0; i < duration * 44100; i++) {
+            channelData[index++] = Math.sin(2 * Math.PI * freq * (time + i / 44100));
+        }
+        time += duration;
+    }
+
+    function addSilence(duration) {
+        index += duration * 44100;
+        time += duration;
+    }
+
+    // モールス信号を解析して音を生成
+    for (let symbol of morse) {
+        if (symbol === '.') {
+            addBeep(dotTime); // ドット音
+        } else if (symbol === '-') {
+            addBeep(dotTime * 3); // ダッシュ音
+        }else if (symbol === ' '){
+            addSilence(dotTime*2); // ダッシュ音
+       }
+        addSilence(dotTime); // ドットとダッシュの間の静音
+    }
+
+    const wavData = bufferToWav(buffer); // WAVデータに変換
+    const blob = new Blob([wavData], { type: 'audio/wav' });
+
+   // const url = URL.createObjectURL(blob);
+   // const a = document.createElement('a');
+   // a.href = url;
+   // a.download = 'morse.wav';
+   // a.click();
+    //URL.revokeObjectURL(url);
+
+            // ファイル名の生成
+            const now = new Date();
+            const timestamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+            const langType = /[ぁ-んァ-ン]/.test(text) ? 'JP' : 'EN';
+            const fileName = `morse_${timestamp}_${langType}_CPM${speed}.wav`;
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+}
+      
+
+        // バッファをWAV形式に変換する関数（簡略化）
+        function bufferToWav(buffer) {
+            const numOfChannels = buffer.numberOfChannels;
+            const sampleRate = buffer.sampleRate;
+            const samples = buffer.length;
+            const byteRate = sampleRate * numOfChannels * 2;
+            const blockAlign = numOfChannels * 2;
+            const bufferLength = 44 + samples * blockAlign;
+
+            const wavArray = new ArrayBuffer(bufferLength);
+            const view = new DataView(wavArray);
+            let offset = 0;
+
+            // ヘッダの書き込み
+            writeString(view, offset, 'RIFF'); offset += 4;
+            view.setUint32(offset, bufferLength - 8, true); offset += 4;
+            writeString(view, offset, 'WAVE'); offset += 4;
+            writeString(view, offset, 'fmt '); offset += 4;
+            view.setUint32(offset, 16, true); offset += 4;  // フォーマットチャンクの長さ
+            view.setUint16(offset, 1, true); offset += 2;   // PCMフォーマット
+            view.setUint16(offset, numOfChannels, true); offset += 2;
+            view.setUint32(offset, sampleRate, true); offset += 4;
+            view.setUint32(offset, byteRate, true); offset += 4;
+            view.setUint16(offset, blockAlign, true); offset += 2;
+            view.setUint16(offset, 16, true); offset += 2;  // サンプルサイズ
+
+            // データチャンクの書き込み
+            writeString(view, offset, 'data'); offset += 4;
+            view.setUint32(offset, samples * blockAlign, true); offset += 4;
+
+            // サンプルデータの書き込み
+            for (let i = 0; i < samples; i++) {
+                const sample = buffer.getChannelData(0)[i];
+                view.setInt16(offset, sample * 32767, true); offset += 2;
+            }
+
+            return new Uint8Array(wavArray);
+        }
+
+        // 文字列をUint8Arrayに書き込むヘルパー関数
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+          
+            }
+        }        
+        
+        //window.onload = loadContent;
+        //window.onresize = loadContent;
+        
+        // リサイズ時に再描画
+        window.addEventListener('resize', loadContent);        
+        
+    </script>
+</body>
+</html>
