@@ -9,16 +9,17 @@
             font-family: "Arial", sans-serif;
             padding: 20px;
             background-color: #f4f4f4;
-            background-image: url('https://i.postimg.cc/jd8WQPFX/marumarumikann-image1.jpg'); /* 画像を背景として指定 */
+            background-image: url('https://i.postimg.cc/CMkdB5Kw/2-3000.jpg'); /* 画像を背景として指定 */
             background-size: cover; /* 背景画像を画面全体に合わせる */
             background-position: center; /* 背景画像の位置を中央に配置 */
             background-repeat: no-repeat; /* 背景画像が繰り返し表示されないように */
         }
 
         .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background-color: rgba(255, 255, 255, 0.8); /* 半透明の白背景 */
+            max-width 800px;
+            margin: -70px auto 0 auto;
+         
+            font-size: 20px;  /* フォントサイズを大きく */
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -39,11 +40,14 @@
             background-color: #45a049;
         }
 
-        textarea {
-            width: 100%;
-            height: 100px;
-            margin-top: 10px;
-        }
+textarea {
+    width: 100%;
+    height: 200px;
+    font-size: 25px;  /* フォントサイズを大きく */
+    margin-top: -25px;
+}
+
+
 
         /* 追加したスタイル: メールアドレスの位置を右上に固定 */
         .email-box {
@@ -64,7 +68,8 @@
 
     <div class="container">
         <h1>MORSE_WAV(和文電報版)</h1>
-        <h3>「電報を作成」ボタンを押すとひらがなの文章が作成されます。<br>入力欄にアルファベット(大文字か小文字)、ひらがな、カタカナ、数字(0から9)を入力<br>
+        <h3>「電報を作成」ボタンを押すとひらがなの文章が作成されます。<br>
+        文字数制限のスライダーで出題文字数を変えることができます<br>入力欄にアルファベット(大文字か小文字)、ひらがな、カタカナ、数字(0から9)を入力<br>
         「再生ボタン」を押すとWAVE音で入力したモールス音が再生<br>
         「WAVをダウンロード」ボタンを押すと入力した内容のモールス音WAVファイルがダウンロード<br></h3>
         
@@ -78,148 +83,235 @@
         <button id="generateButton">電報を作成</button>
         <button onclick="playMorse()">再生</button>
         <button onclick="downloadWav()">WAVをダウンロード</button>
+       
+       <label for="charLimit"><br>文字数制限:</label>
+       
+       <!--
+        <label><br>文字数制限:</label>
+        -->
+       <input type="range" id="charLimit" min="40" max="350" value="120" step="1" oninput="document.getElementById('charLimitValue').innerText = this.value;">
+       <span id="charLimitValue">120</span>文字       
+        
     </div>
 
     <script>
     
         // 辞書を定義（名前、駅名、列車番号、住所、本文など）
-        var dictionary = {
-            "names": ["わたなべけんじ", "たかはしゆうすけ", "いとうまり", "さとうあきこ", "たむらだいすけ", "やまもときよし", "きむらひろし", "たけだまさひろ", "ささきあゆみ", "すずきけんた"],
-            "stations": ["あおもりまるしんせん", "いわきえき", "さくらだいがくまえ", "おおさかきた", "はこだてえき", "しんこうえんえき", "せんだいまる", "しぶやえき", "こまええき", "くろすしえき"],
-            "train_numbers": ["ごろく せさん、よんに", "はちきゅう いちまる、さんに", "ごに せん、いちいち", "ろくご けいきゅう、ななに", "ななきゅう しちまる、ろくいち", "しちよん いちに、さんさん", "ごろく せん、にご", "いちご まる、よんろく", "ごにん けいきゅう、ろくまる", "あおきまるご、にごきゅう"],
-            "addresses": ["あおもりしひがしやまにしまちいちのさん", "いわきしおおみやまちよんばん", "さくらだいがくまえきたむら", "おおさかしほんまちにしちろうじ", "はこだてしきたみなみまち", "ちょうしみなみちょうに", "あいちしおおおか", "きょうとしあらおかまち", "ふくおかしひがしまち", "なごやしみなみじまち"],
+
+       var dictionary = {
+            "names": [
+                "わたなべけんじ", "たかはしゆうすけ", "いとうまり", "さとうあきこ", "たむらだいすけ",
+                "きたむらあい", "みやけけん", "やまぐちゆうき", "おおたけたけし", "ほうせんたくま",
+                "かとうあや", "おおわきしんや", "おおつかひろき", "なかむらゆり", "にしおかこうた",
+                "わかばやしこうへい", "たけだちほ", "しみずみさと", "まつもとたくみ", "あきやまつばさ",
+                "さとうさやか", "おおやまあい", "しんどうけん", "よこたやすひろ", "あきおかまり", 
+                "ふじおかたくや", "えんどうゆうた", "やまぐちなおき", "はせべともや", "すずきまゆ",
+                "さくらや", "ひまわりや", "ゆうきわん", "おおたけしょっぷ", "みなとあん", 
+                "かんなえん", "みずきこう", "しろゆり", "あやめや", "あおばや", 
+                "うめしん", "りんどう", "かつらあん", "しらゆきや", "つばきまる", 
+                "とりはな", "くろまるや", "りゅうきんや", "いずみうら", "ふじわらや",
+            ],
+            "stations": [
+                "ほっかいどうすすきのむせん", "さっぽろむせん", "なごやむせん", "おおさかむせん", "はこだてむせん",
+                "しずおかむせん", "みやざきむせん", "ふくおかむせん", "いわてけんむせん", "いちかわむせん",
+                "きょうとむせん", "おおつむせん", "あいちけんむせん", "こうべむせん", "まつやまむせん",
+                "わかやまむせん", "おおやまむせん", "しおばらむせん", "おうみむせん", "たくさんむせん",
+                "あおもりむせん", "さくらむせん", "しらおいむせん", "ゆうきむせん", "むろらんむせん",
+            ],
+            "addresses": [
+                "さっぽろしみなみじょうあたり", "おおさかしほんまち", "ほっかいどうすすきのむせん", "いわきしおおみやまちよんばん", "はこだてしきたみなみまち",
+                "みやざきしこうほう", "ふくおかしおおきんぐ", "いちかわしあしびな", "しずおかしとおじ", "ゆうきしおおおか", 
+                "ふたばしこめい", "みよししまつだ", "きょうとしきた", "あいちけんあいあい", "まつやましごお",
+            ],
             "messages": {
                 "line1": [
-                    "ふるさとのやま、みどりのほし、はしりぬける?",
-                    "かわのせせらぎ、そよふくふう、はやくにげろ?",
-                    "あしたのひび、けしきのなかに[らた]",
-                    "ゆめのひび、まちのひび、やすらぎつつみこむ",
-                    "あおぞらのした、てんしのこえ、やさしくささやく",
-                    "いちばんぼし、ひかりのなかに、きらきらゆれる",
-                    "おおきなみどりのなかで、まよいながらもあるく",
-                    "よるのしろいきらめき、てんしのほほえみ",
-                    "わたしのきもち、あなたへつたえたい、あたたかなゆめ",
-                    "おひさまのした、わらってすすむ、しあわせなひび"
+                    "こんなんをのりこえることでひとはせいちょうする」しっぱいをおそれず、ちょうせんしつづけることがたいせつです」じぶんをしんじてすすみつづけることで、かならずせいこうをおさめることができるとしんじましょう」",
+                    "ほんとうにたいせつなのは、どれだけたちあがるかです」ころんだかいすうではなく、たちあがるかいすうこそがちからとなります」つらいときにも、あきらめずにもういちどたちあがることがけっかをうむのです」",
+                    "めのまえのちいさないっぽが、とおいみらいのおおきなせいかへとつながることをしんじてあゆみつづけましょう」どんなちいさなすすみかたでも、まえにすすめばすすんでいるのです」",
                 ],
                 "line2": [
-                    "としょかんのまえ、さくらのはな、きらきらひかる",
-                    "やまのうえに、こうこうとひかるたいよう、しあわせのきせつ",
-                    "みんなのえがお、すこしのおもいで、ひとりひとりのゆめ",
-                    "あたたかいきおく、わすれられないじかん、ほんとうのやさしさ",
-                    "ながれるみず、しぜんのうた、いきるちから",
-                    "てんにひかり、しんじつのうた、わらうみんな",
-                    "かぜのなか、こころおどる、しあわせをさがして",
-                    "たくさんのきおく、いろんなじかん、だれかとわかちあう",
-                    "ひかりのうえ、はなびのなか、しんじつをしる",
-                    "あたらしいみらい、あなたとともに、ゆめをおいかける"
+                    "いっぽふみだすことで、ひろがるせかいがあります」おそれずにまえへすすんでいきましょう」きっとあたらしいちきゅうがひろがり、すばらしいけっかがまっています」",
+                    "かんがえすぎてうごけなくなるより、まずはこうどうすることがじゅうようです」こうかいしないように、いっぽをふみだしましょう」それがせいこうへのだいかいせんとなります」",
+                    "まいにちすこしずつでもすすんでいくことが、さいしゅうてきにはおおきなせいかをうむことになります」いちにち、いっぽずつ、しんちょくしていくことがたいせつです」",
                 ],
                 "line3": [
-                    "ひかりのなか、たくさんのえがお、あたたかいふれあい",
-                    "あしたのゆめ、てんしのわざ、ほほえみのきせつ",
-                    "ゆめのゆき、そらのうた、みんなのあい",
-                    "さくらのき、あたらしいはじまり、ほしのしたのねがいごと",
-                    "ひとしずくのしずく、ゆうきをあたえてくれる",
-                    "みどりのなか、あたらしいあさ、ほしをかかえて",
-                    "こころのなか、ひかりがともしびとなり、みんなをつなぐ",
-                    "たいようのした、つよくゆるやかに、みんなでまもりあう",
-                    "ゆめのはじまり、まよいのち、うみのそらをわけて",
-                    "しあわせのあしおと、ほしとともに、まぶしいひび"
+                    "せいこうへのちかみちはない」しかし、しんねんをもちつづけることがもっともたいせつなようそです」しんらいとじぶんをしんじることが、せいこうをかなえるためのきほんです」",
+                    "くるしいときには、まえをむいていっぽふみだすこと」それがさいしゅうてきにあかるいみらいへつながります」いまがつらくても、あすはちがうことをしんじてすすみましょう」",
+                    "かこのしっぱいをおそれず、みらいをしんじてこうどうすることがもっともじゅうようです」しっぱいからまなび、つよくなれるとしんじてすすんでいくことがたいせつです」",
                 ]
             }
         };
 
-        // 和数字に変換する関数
-        function toJapaneseNumerals(num) {
-            const kanjiDigits = ['◯', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
-            return num.toString().split('').map(digit => kanjiDigits[parseInt(digit)]).join('');
+        // 和数字に変換する関数（修正）
+        function toJapaneseNumber(num) {
+            const kanjiNumbers = ["〇", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+            if (num <= 9) {
+                return kanjiNumbers[num];
+            } else {
+                let result = '';
+                let digits = num.toString().split('');
+                for (let i = 0; i < digits.length; i++) {
+                    result += kanjiNumbers[parseInt(digits[i])];
+                }
+                return result;
+            }
+        }
+
+        // 列車番号を生成する関数
+        function generateTrainNumber() {
+            const firstPart = toJapaneseNumber(Math.floor(Math.random() * 990) + 10); // 和数字2桁から3桁
+            const middlePart = toJapaneseNumber(Math.floor(Math.random() * 13)); // 和数字0から12
+            const lastPart = toJapaneseNumber(Math.floor(Math.random() * 60)); // 和数字0から59
+            const suffix = Math.random() < 0.5 ? "せ" : "こ"; // 「せ」か「こ」をランダムに選択
+
+            return `${firstPart} ${suffix}${toJapaneseNumber(Math.floor(Math.random() * 13))}、${toJapaneseNumber(Math.floor(Math.random() * 60))}`;
         }
 
         // 電報のテンプレート
         var telegraphTemplate = {
-            "station_phrase": "、{station} {train_number},\n{address}」 {name}[BT]",
-            "line1": "{line1_message}",
+            "station_phrase": "{station} {train_number}、\n{address} [BT]",
+            "line1": "[ほれ] {line1_message}",
             "line2": "{line2_message}",
-            "line3": "{line3_message}"
+            "line3": "{line3_message} [らた]"
         };
 
         // ランダムに辞書から選択する関数
         function getRandomItem(arr) {
             return arr[Math.floor(Math.random() * arr.length)];
         }
-/*
-        function generateTelegraph() {
-            // 辞書からランダムに選択
-            var name = getRandomItem(dictionary["names"]);
-            var station = getRandomItem(dictionary["stations"]);
-            var trainNumber = getRandomItem(dictionary["train_numbers"]);
-            var address = getRandomItem(dictionary["addresses"]);
-            var line1_message = getRandomItem(dictionary["messages"]["line1"]);
-            var line2_message = getRandomItem(dictionary["messages"]["line2"]);
-            var line3_message = getRandomItem(dictionary["messages"]["line3"]);
-
-            // 電報本文の文字数を数えて和数字に変換
-            var totalLength = name.length + station.length + trainNumber.length + address.length + line1_message.length + line2_message.length + line3_message.length;
 
 
 
-// 辞書を使って電報文を生成
-var telegraph = totalLengthInKanji + "字 " + telegraphTemplate["station_phrase"]
-    .replace("{name}", name)
-    .replace("{station}", station)
-    .replace("{train_number}", trainNumber)
-    .replace("{address}", address);
 
-// 一行目の先頭に[ほれ]を追加
-telegraph += "\n[ほれ]" + telegraphTemplate["line1"].replace("{line1_message}", line1_message);
+function generateTelegraph() {
+    const charLimit = parseInt(document.getElementById('charLimit').value); // 追加
 
-// 二行目
-telegraph += telegraphTemplate["line2"].replace("{line2_message}", line2_message);
+    var name = getRandomItem(dictionary["names"]);
+    var station = getRandomItem(dictionary["stations"]);
+    var trainNumber = generateTrainNumber();
+    var address = getRandomItem(dictionary["addresses"]);
+    var line1_message = getRandomItem(dictionary["messages"]["line1"]);
+    var line2_message = getRandomItem(dictionary["messages"]["line2"]);
+    var line3_message = getRandomItem(dictionary["messages"]["line3"]);
 
-// 三行目の最後に[らた]を追加
-telegraph += telegraphTemplate["line3"].replace("{line3_message}", line3_message) + "[らた]";
+    var totalLength = line1_message.length + line2_message.length + line3_message.length;
+    while (totalLength < 50) {
+        line1_message += " " + getRandomItem(dictionary["messages"]["line1"]);
+        line2_message += " " + getRandomItem(dictionary["messages"]["line2"]);
+        line3_message += " " + getRandomItem(dictionary["messages"]["line3"]);
+        totalLength = line1_message.length + line2_message.length + line3_message.length;
+    }
+    while (totalLength > charLimit) { // ここにスライダー値を反映
+        line1_message = line1_message.substring(0, line1_message.length - 1);
+        line2_message = line2_message.substring(0, line2_message.length - 1);
+        line3_message = line3_message.substring(0, line3_message.length - 1);
+        totalLength = line1_message.length + line2_message.length + line3_message.length;
+    }
 
-
-            var totalLengthInKanji = toJapaneseNumerals(totalLength);
-
-            // 辞書を使って電報文を生成
-            var telegraph = totalLengthInKanji + "字、" + telegraphTemplate["station_phrase"]
-                .replace("{name}", name)
-                .replace("{station}", station)
-                .replace("{train_number}", trainNumber)
-                .replace("{address}", address);
-            
-            // 一行目の先頭に[ほれ]を追加
-            telegraph += "\n[ほれ]" + telegraphTemplate["line1"].replace("{line1_message}", line1_message);
-
-            // 二行目
-            telegraph += telegraphTemplate["line2"].replace("{line2_message}", line2_message);
-
-            // 三行目の最後に[らた]を追加
-            telegraph += telegraphTemplate["line3"].replace("{line3_message}", line3_message) + "[らた]";
-
-            // 出力エリアに電報を表示
-            document.getElementById("output").innerHTML = `<pre>${telegraph}</pre>`;
+    let fullMessage = line1_message + line2_message + line3_message;
+    let modifiedMessage = '';
+    for (let i = 0; i < fullMessage.length; i++) {
+        modifiedMessage += fullMessage[i];
+        if ((i + 1) % 80 === 0 && i !== fullMessage.length - 1) {
+            modifiedMessage += "？";
         }
+    }
+
+    line1_message = modifiedMessage.substring(0, Math.ceil(modifiedMessage.length / 3));
+    line2_message = modifiedMessage.substring(line1_message.length, line1_message.length + Math.ceil(modifiedMessage.length / 3));
+    line3_message = modifiedMessage.substring(line1_message.length + line2_message.length);
+
+    var telegraph = telegraphTemplate["station_phrase"]
+        .replace("{station}", station)
+        .replace("{train_number}", trainNumber)
+        .replace("{address}", address);
+
+    telegraph += "\n" + telegraphTemplate["line1"].replace("{line1_message}", line1_message);
+    telegraph += "\n" + telegraphTemplate["line2"].replace("{line2_message}", line2_message);
+    telegraph += "\n" + telegraphTemplate["line3"].replace("{line3_message}", line3_message);
+
+    var messageLength = telegraph.length;
+    var japaneseNumber = toJapaneseNumber(messageLength);
+    telegraph = "、" + japaneseNumber + " " + telegraph;
+
+    document.getElementById("inputText").value = `${telegraph}`;
+}
+
+/*
+function generateTelegraph() {
+    // 辞書からランダムに選択
+    var name = getRandomItem(dictionary["names"]);
+    var station = getRandomItem(dictionary["stations"]);
+    var trainNumber = generateTrainNumber();
+    var address = getRandomItem(dictionary["addresses"]);
+    var line1_message = getRandomItem(dictionary["messages"]["line1"]);
+    var line2_message = getRandomItem(dictionary["messages"]["line2"]);
+    var line3_message = getRandomItem(dictionary["messages"]["line3"]);
+
+    // メッセージ合計文字数の調整
+    var totalLength = line1_message.length + line2_message.length + line3_message.length;
+    while (totalLength < 50) {
+        line1_message += " " + getRandomItem(dictionary["messages"]["line1"]);
+        line2_message += " " + getRandomItem(dictionary["messages"]["line2"]);
+        line3_message += " " + getRandomItem(dictionary["messages"]["line3"]);
+        totalLength = line1_message.length + line2_message.length + line3_message.length;
+    }
+    while (totalLength > 86) {
+        line1_message = line1_message.substring(0, line1_message.length - 1);
+        line2_message = line2_message.substring(0, line2_message.length - 1);
+        line3_message = line3_message.substring(0, line3_message.length - 1);
+        totalLength = line1_message.length + line2_message.length + line3_message.length;
+    }
+
+    // 全メッセージ結合
+    let fullMessage = line1_message + line2_message + line3_message;
+
+    // 80文字ごとに「？」を挿入
+    let modifiedMessage = '';
+    for (let i = 0; i < fullMessage.length; i++) {
+        modifiedMessage += fullMessage[i];
+        if ((i + 1) % 80 === 0 && i !== fullMessage.length - 1) {
+            modifiedMessage += "？";
+        }
+    }
+
+    // 再分割（3行）
+    line1_message = modifiedMessage.substring(0, Math.ceil(modifiedMessage.length / 3));
+    line2_message = modifiedMessage.substring(line1_message.length, line1_message.length + Math.ceil(modifiedMessage.length / 3));
+    line3_message = modifiedMessage.substring(line1_message.length + line2_message.length);
+
+    // 電報文全体を生成
+    var telegraph = telegraphTemplate["station_phrase"]
+        .replace("{station}", station)
+        .replace("{train_number}", trainNumber)
+        .replace("{address}", address);
+
+    // 一行目の先頭に[ほれ]を追加
+    telegraph += "\n" + telegraphTemplate["line1"].replace("{line1_message}", line1_message);
+
+    // 二行目
+    telegraph += "\n" + telegraphTemplate["line2"].replace("{line2_message}", line2_message);
+
+    // 三行目の最後に[らた]を追加
+    telegraph += "\n" + telegraphTemplate["line3"].replace("{line3_message}", line3_message);
+
+    // 文字数をカウントし和数字に変換
+    var messageLength = telegraph.length;
+    var japaneseNumber = toJapaneseNumber(messageLength);
+
+    // 和数字をstationsの前に挿入
+    telegraph = "、" + japaneseNumber + " " + telegraph;
+
+    // 出力
+    document.getElementById("inputText").innerHTML = `${telegraph}`;
+}
+*/
 
         // ボタンがクリックされたときに電報を生成
-        document.getElementById("generateButton").onclick = generateTelegraph;    
-        
-            const randomMessage = sampleMessages[Math.floor(Math.random() * sampleMessages.length)];
-            document.getElementById("inputText").value = randomMessage;
-        });
-        */
-        
-        document.getElementById("generateButton").addEventListener("click", function() {
-            const sampleMessages = [
-                "おめでとう ございます ごたこう を おいのり します。",
-                "ごにゅうがく おめでとう ございます」 あらたな かどで を しゅくふく します」",
-                "おたんじょうび おめでとう ございます」 すばらしい いちねん に なります ように」",
-                "ごけっこん おめでとう ございます」 すえながい おしあわせ を ねがって います」",
-                "あたらしい しょくば で の ごかつやく を おいのり いたします」"
-            ];
-            const randomMessage = sampleMessages[Math.floor(Math.random() * sampleMessages.length)];
-            document.getElementById("inputText").value = randomMessage;
-        });
+        document.getElementById("generateButton").onclick = generateTelegraph;
+       //document.getElementById("inputText").value = generateTelegraph;    
+  
+
 
         function playMorse() {
             alert("モールス信号を再生します。\n" + document.getElementById("inputText").value);
@@ -241,14 +333,17 @@ telegraph += telegraphTemplate["line3"].replace("{line3_message}", line3_message
                 // スマートフォン表示の場合
             <!--
             container.innerHTML = `  
+                    <!--
                     <h4>スマートフォン版</h4>
+                    -->
                 `;
                 -->
             } else {
            <!--
                 container.innerHTML = `
-             
+             <!--
                     <h4>PC版</h4>
+                    -->
                 `;
                 -->
             }
