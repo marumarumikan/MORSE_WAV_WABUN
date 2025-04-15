@@ -1,0 +1,3199 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MORSE WAV(和文欧文電報版)</title>
+      <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
+    <style>
+      body {
+        font-family: "Arial", sans-serif;
+        padding: 20px;
+        background-color: #f4f4f4;
+        background-image: url("https://i.postimg.cc/rwJYqhKX/2.png");
+        background-size: cover;
+        background-position: center 0px;
+        background-repeat: no-repeat;
+      }
+
+      .container {
+        max-width: 800px;
+        margin: -85px auto 0 auto;
+        font-size: 25px;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        text-align: center;
+      }
+
+      button {
+        background-color: #4caf50;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 5px;
+        font-size: 22px;
+        transition: background-color 0.3s ease;
+      }
+
+      button:hover:not(:disabled) {
+        background-color: #45a049;
+      }
+
+      button:disabled {
+        background-color: #aaa !important;
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+
+      textarea {
+        width: 100%;
+        height: 220px;
+        font-size: 25px;
+        margin-top: -25px;
+        caret-color: auto;
+        font-family: sans-serif; /* 変更：縦棒カーソルを見えやすく */
+        line-height: 1.0; /* 追加：読みやすさのため */
+      }
+
+      .email-box {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: white;
+        padding: 10px;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        font-size: 20px;
+      }
+
+      #morseIndicator {
+        font-size: 40px;
+        color: red;
+        margin-top: 10px;
+        height: 40px;
+        animation: blink 0.5s ease-in-out infinite alternate;
+      }
+
+      @keyframes blink {
+        from {
+          opacity: 0.2;
+          color: red;
+        }
+        to {
+          opacity: 1;
+          color: orange;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>MORSE WAV</h2>
+
+      <textarea id="inputText" placeholder="テキストを入力"></textarea>
+      <div id="morseIndicator"></div>
+
+      <label for="speedRange">速度 (CPM):</label>
+      <input
+        type="range"
+        id="speedRange"
+        min="20"
+        max="500"
+        value="125"
+        step="1"
+        oninput="speedValue.innerText = this.value;"
+      />
+      <span id="speedValue">125</span><br />
+
+      <label for="freqRange">周波数 (Hz):</label>
+      <input
+        type="range"
+        id="freqRange"
+        min="300"
+        max="1000"
+        value="880"
+        step="10"
+        oninput="freqValue.innerText = this.value;"
+      />
+      <span id="freqValue">880</span><br />
+
+      <button id="generateJapaneseButton">和文電報作成</button>
+      <button id="generateEnglishButton">欧文電報作成</button>
+      <button id="playButton" onclick="playMorse()">再生</button>
+      <button id="stopButton" onclick="stopMorse()" disabled>停止</button>
+      <button onclick="downloadMP3()">MP3ダウンロード</button>
+      <button onclick="downloadWav()">WAVダウンロード</button>
+      <button onclick="clearText()">入力欄クリア</button>
+
+      <label for="charLimit">文字数制限:</label>
+      <input
+        type="range"
+        id="charLimit"
+        min="40"
+        max="350"
+        value="120"
+        step="1"
+        oninput="document.getElementById('charLimitValue').innerText = this.value;"
+      />
+      <span id="charLimitValue">120</span>文字
+<div>
+  <label><input type="radio" name="mode" value="roman" checked> 欧文出題</label>
+  <label><input type="radio" name="mode" value="kana"> 和文出題</label>
+</div>    
+<button onclick="startLearningMode()">文字出題</button>
+<button onclick="startWordQuiz()">単語出題</button>   
+<div class="output" id="output"></div>
+    </div>
+
+    <script>
+    
+const morseDict = {
+  "A": ".-", "B": "-...", "C": "-.-.", "D": "-..", "E": ".", "F": "..-.", "G": "--.",
+  "H": "....", "I": "..", "J": ".---", "K": "-.-", "L": ".-..", "M": "--", "N": "-.",
+  "O": "---", "P": ".--.", "Q": "--.-", "R": ".-.", "S": "...", "T": "-", "U": "..-",
+  "V": "...-", "W": ".--", "X": "-..-", "Y": "-.--", "Z": "--..",
+  "1": ".----", "2": "..---", "3": "...--", "4": "....-", "5": ".....",
+  "6": "-....", "7": "--...", "8": "---..", "9": "----.", "0": "-----"
+};    
+    
+const kanaDict = {
+  "あ":"--.--", "い":".-", "う":"..-", "え":"-.---", "お":".-...",
+  "か":".-..", "き":"-.-..", "く":"...-", "け":"-.--", "こ":"----",
+  "さ":"-.-.-", "し":"--.-.", "す":"---.-", "せ":".---.", "そ":"---.",
+  "た":"-.", "ち":"..-.", "つ":".--.", "て":".-.--", "と":"..-..",
+  "な":".-.", "に":"-.-.", "ぬ":"....", "ね":"--.-", "の":"..--",
+  "は":"-...", "ひ":"--..-", "ふ":"--..", "へ":".", "ほ":"-..",
+　"ま":"-..-", "み":"..-.-", "む":"-", "め":"-...-", "も":"-..-.",
+  "や":".--", "ゐ":".-..-", "ゆ":"-..--", "ゑ":".--..", "よ":"--",
+  "ら":"...", "り":"--.", "る":"-.--.", "れ":"---", "ろ":".-.-",
+　"わ":"-.-", "を":".---", "ん":".-.-.", "0":"-----", "1":".----",
+  "2":"..---", "3":"...--", "4":"....-", "5":".....", "6":"-....",
+  "7":"--...", "8":"---..", "9":"----."
+};
+    
+    
+    
+      let morseTimeouts = []
+      let isPlaying = false
+      let currentAudioCtx = null
+
+const kanaWordList = ["あいう", "えおか", 
+"きくけ", "こあう", 
+"いえお","あおい", "あさひ", "あかり", "あつめ", "あまい", "あやう", "あらし", "あそび", "あした", "あずき",
+"いちご", "いもう", "いけだ", "いなか", "いぬい", "いばら", "いそぎ", "いよく", "いわし", "いとこ",
+"うさぎ", "うなぎ", "うつわ", "うけみ", "うでま", "うめぼ", "うらら", "うんて", "うわさ", "うちわ",
+"えがお", "えんぴ", "えいご", "えだま", "えほん", "えらび", "えいゆ", "えりあ", "えんじ", "えもの",
+"おかね", "おばけ", "おにぎ", "おちゃや", "おもい", "おやつ", "おりが", "おんが", "おとこ", "おひる",
+"かさね", "かみさ", "かぼち", "かぜや", "かえる", "かんこ", "かれん", "かんづ", "かいふ", "かすみ",
+"きもの", "きせき", "きぼう", "きのう", "きもち", "きゃく", "きぐう", "きいろ", "きりん", "きれい",
+"くるま", "くもり", "くすり", "くさき", "くらや", "くしゃ", "くじら", "くちび", "くわえ", "くんれ",
+"けしき", "けいた", "けむり", "けわし", "けんと", "けがわ", "けんだ", "けいと", "けろけ", "けもの",
+"こども", "ことば", "こいぬ", "こんぶ", "こしか", "こより", "ころも", "こもれ", "こばな", "こはく","たなばた", "こいびと", "おにぎり", "ふうせん", "いぬごや", "はなびら", "ひこうき", "ゆきだる", "おおぞら", "うみべり",
+"あさごはん", "にくじゃが", "かんづめ", "しんかん", "つきよみ", "あまぐも", "まどぐち", "ひざかけ", "ゆうやけ", "うらがわ",
+"さくらんぼ", "みかんばこ", "そよかぜ", "てんぐさ", "いちばん", "きしゃぽっ", "くりすま", "たんじょ", "なつまつ", "ひるやす",
+"ほしぞら", "はつゆき", "せんぷう", "あきかぜ", "おくりも", "やまのぼ", "にんじゃ", "おとしだ", "ふゆごも", "うきわら",
+"しらゆき", "まつぼっ", "つばさく", "にがおえ", "すいえい", "やきそば", "あめふり", "しんせき", "もんしろ", "やまざと",
+"たけやぶ", "ふでばこ", "つくえう", "かぜぐす", "すなばち", "のりまき", "たまいれ", "ひまわり", "かんらん", "いぬぞり",
+"のうさぎ", "まくらも", "きりふき", "てつぼう", "ひこうじ", "おおあめ", "ほしまつ", "ちからこ", "はしごだ", "とんぼう",
+"くつした", "かぜひき", "いぬとも", "やまざと", "あきはば", "みずあそ", "くじびき", "せんたく", "しょくぶ", "てがみや",
+"つみきや", "よなかみ", "こづつみ", "こもれび", "しろくま", "とびらや", "えほんや", "とけいだ", "せみしぐ", "やまみち",
+"なみだぐ", "あたたか", "さよなら", "おんがく", "でんしゃ", "りんごあ", "ちゅうしゃ", "きんぎょ", "ふとんや", "ひかりご","たなばた", "こいびと", "おにぎり", "ふうせん", "いぬごや", "はなびら", "ひこうき", "ゆきだる", "おおぞら", "うみべり",
+"あさごはん", "にくじゃが", "かんづめ", "しんかん", "つきよみ", "あまぐも", "まどぐち", "ひざかけ", "ゆうやけ", "うらがわ",
+"さくらんぼ", "みかんばこ", "そよかぜ", "てんぐさ", "いちばん", "きしゃぽっ", "くりすま", "たんじょ", "なつまつ", "ひるやす",
+"ほしぞら", "はつゆき", "せんぷう", "あきかぜ", "おくりも", "やまのぼ", "にんじゃ", "おとしだ", "ふゆごも", "うきわら",
+"しらゆき", "まつぼっ", "つばさく", "にがおえ", "すいえい", "やきそば", "あめふり", "しんせき", "もんしろ", "やまざと",
+"たけやぶ", "ふでばこ", "つくえう", "かぜぐす", "すなばち", "のりまき", "たまいれ", "ひまわり", "かんらん", "いぬぞり",
+"のうさぎ", "まくらも", "きりふき", "てつぼう", "ひこうじ", "おおあめ", "ほしまつ", "ちからこ", "はしごだ", "とんぼう",
+"くつした", "かぜひき", "いぬとも", "やまざと", "あきはば", "みずあそ", "くじびき", "せんたく", "しょくぶ", "てがみや",
+"つみきや", "よなかみ", "こづつみ", "こもれび", "しろくま", "とびらや", "えほんや", "とけいだ", "せみしぐ", "やまみち",
+"なみだぐ", "あたたか", "さよなら", "おんがく", "でんしゃ", "りんごあ", "ちゅうしゃ", "きんぎょ", "ふとんや", "ひかりご","たなばた", "こいびと", "おにぎり", "ふうせん", "いぬごや", "はなびら", "ひこうき", "ゆきだる", "おおぞら", "うみべり",
+"あさごはん", "にくじゃが", "かんづめ", "しんかん", "つきよみ", "あまぐも", "まどぐち", "ひざかけ", "ゆうやけ", "うらがわ",
+"さくらんぼ", "みかんばこ", "そよかぜ", "てんぐさ", "いちばん", "きしゃぽっ", "くりすま", "たんじょ", "なつまつ", "ひるやす",
+"ほしぞら", "はつゆき", "せんぷう", "あきかぜ", "おくりも", "やまのぼ", "にんじゃ", "おとしだ", "ふゆごも", "うきわら",
+"しらゆき", "まつぼっ", "つばさく", "にがおえ", "すいえい", "やきそば", "あめふり", "しんせき", "もんしろ", "やまざと",
+"たけやぶ", "ふでばこ", "つくえう", "かぜぐす", "すなばち", "のりまき", "たまいれ", "ひまわり", "かんらん", "いぬぞり",
+"のうさぎ", "まくらも", "きりふき", "てつぼう", "ひこうじ", "おおあめ", "ほしまつ", "ちからこ", "はしごだ", "とんぼう",
+"くつした", "かぜひき", "いぬとも", "やまざと", "あきはば", "みずあそ", "くじびき", "せんたく", "しょくぶ", "てがみや",
+"つみきや", "よなかみ", "こづつみ", "こもれび", "しろくま", "とびらや", "えほんや", "とけいだ", "せみしぐ", "やまみち",
+"なみだぐ", "あたたか", "さよなら", "おんがく", "でんしゃ", "りんごあ", "ちゅうしゃ", "きんぎょ", "ふとんや", "ひかりご","あさごはん", "いぬごやし", "おにぎりや", "かみひこう", "こどもべや", "さくらもち", "しんかんせ", "すいえいぶ", "せんぷうき", "たんじょう",
+"ちゅうがく", "つきみそう", "てんぐだい", "とけいだい", "なつまつり", "にがおえや", "ぬいぐるみ", "ねこじゃらし", "のうぎょう", "はなやしき",
+"ひこうきぐ", "ふゆやすみ", "へいわしゅ", "ほしぞらや", "まどぐちや", "みずたまり", "むしあつい", "めがねやさ", "もんしろち", "やまのぼり",
+"ゆきだるま", "よるごはん", "らいおんざ", "りんごあめ", "るすばんで", "れんしゅうじ", "ろうそくた", "わすれもの", "あかしんご", "いえでんわ",
+"うちゅうせん", "えいがかん", "おおあめだ", "かぜひきや", "きんぎょば", "くりすます", "けいたいで", "こうえんで", "さかなつり", "しょくぶつ",
+"すなあそび", "せみしぐれ", "そよかぜや", "たいようけ", "ちきゅうぎ", "つみきばこ", "てがみいれ", "とうめいな", "なべものや", "にちようび",
+"ぬのきれや", "ねんどあそ", "のりまきず", "はしごだか", "ひまわりば", "ふとんばこ", "へやのなか", "ほたるがり", "まくらもと", "みかんばこ",
+"むぎちゃいれ", "めざましど", "もくようび", "やきそばや", "ゆうびんき", "ようふくだ", "らっぱがね", "りょこうしゃ", "るいじあん", "れいぞうこ",
+"ろうじんほ", "わらいごえ", "あさやけだ", "いしころが", "うしろすが", "えがおまる", "おつかいち", "かんづめや", "きしゃぽっぽ", "くもりぞら",
+"けんかごし", "こうつうじ", "さといもに", "しらゆきひ", "すいとうや", "せんせいし", "たけやぶや", "ちからもち", "つばさぐみ", "てんきよほ","ゆきだるま", "さくらもち", "あさごはん", "おおあめだ", "ひこうきぐ", "おにぎりや", "かみひこう", "たんじょう", "みずたまり", "すいえいぶ",
+"にちようび", "きょうそう", "ちゅうがく", "てんきよほ", "のうぎょう", "おんがくか", "せんぷうき", "らいおんざ", "うちゅうせん", "りんごあめ",
+"ふゆやすみ", "こうつうじ", "ぬいぐるみ", "ちからもち", "てがみいれ", "くりすます", "まくらもと", "むしあつい", "きしゃぽっぽ", "もんしろち",
+"かんづめや", "おつかいち", "えいがかん", "ねんどあそ", "ふとんばこ", "ほしぞらや", "こどもべや", "かぜひきや", "めざましど", "せみしぐれ",
+"おおぞらや", "おんがくし", "きょうりょ", "いえでんわ", "はなやしき", "つみきばこ", "そよかぜや", "おりがみや", "はしごだか", "しんかんせ",
+"まどぐちや", "ゆうびんき", "でんしゃご", "ひまわりば", "りょこうしゃ", "やまのぼり", "しょくぶつ", "さといもに", "いしころが", "ふゆふくや",
+"たけやぶや", "とうめいな", "ねこじゃらし", "まつぼっく", "くつしたや", "ふうせんや", "しらゆきひ", "すなあそび", "あさやけだ", "けいたいで",
+"おりがみや", "せんせいし", "つばさぐみ", "よるごはん", "かんらんしゃ", "いちごだい", "おおあめふ", "あたたかみ", "はれのひや", "ちきゅうぎ",
+"れいぞうこ", "ほたるがり", "のりまきず", "たいようけ", "もくようび", "てつぼうう", "うみべりや", "むぎちゃいれ", "あまぐもり", "こもれびや",
+"えほんやさん", "なべものや", "やきそばや", "きんぎょば", "とけいだい", "まんがかん", "あきはばら", "しょくいんしつ", "いぬごやし", "にがおえや","あさごはんや", "あめのひぐも", "いえでんわご", "いぬのさんぽ", "うみべのまち", "えんそくびより", "おおあめふり", "かぜのつよいひ", "かみひこうき", "からあげべんとう",
+"かんらんしゃ", "きしゃぽっぽ", "きょうのしゅくだい", "ぎゅうにゅうびん", "くもりぞらや", "けんかごしらえ", "こうつうじこ", "こいのぼりや", "こどもべやの", "さかなつりざお",
+"さくらのはなびら", "さといもにもの", "しずかなよる", "しゃしんたてや", "しょくぶつえん", "しらゆきひめ", "すいえいきょうしつ", "すなあそびば", "せんぷうきや", "そよかぜふく",
+"たけやぶのなか", "たんじょうびかい", "ちゅうがくせい", "つきよのまち", "てつぼうあそび", "てんきよほうし", "とうめいにんげん", "とけいだいまえ", "としょかんまえ", "なつまつりや",
+"にんじゃやしき", "ぬいぐるみや", "ねんどあそび", "のりまきこうじょう", "はしごしゃたい", "はなやしきまえ", "はれたそらや", "ひこうきぐも", "ひまわりばたけ", "ふとんばこや",
+"へいわのしるし", "ほしぞらほてる", "ほたるがりや", "まくらもとの", "まつぼっくり", "まんがかんない", "みずたまりや", "みかんばこや", "むしあついひ", "めざましどけい",
+"もくようびの", "もんしろちょう", "やきそばたいかい", "やまのぼりぐ", "ゆうびんきょく", "ゆきだるまづくり", "ようふくだんす", "よなかのじけん", "らいおんたいそう", "りょこうかばん",
+"るすばんでんわ", "れいぞうこそうじ", "ろうそくたてや", "わすれものばこ", "あかしんごう", "あまぐもりそら", "いちごがりや", "いのちのせんせい", "うたのおにいさん", "えんそうかいじょう",
+"おとしだまぶくろ", "かおのにがおえ", "かがやくほしぞら", "がっこうきょうしつ", "きんぎょすくい", "くつしたうりば", "けいたいでんわ", "こうさてんまえ", "さかなのなかま", "ざぶとんたたみ",
+"しょくいんしつ", "しんかんせんほーむ", "すずしいかぜ", "せみしぐれのなつ", "そうじきがけ", "たいいくかんうら", "ちいさなともだち", "つばさぐみのへや", "てんじかいじょう", "でんしゃごっこ","さくらのはなびら", "あさごはんのじかん", "おにいさんといもうと", "きょうのてんきよほう", "ひこうきぐもながれる", "ゆうびんきょくまえ", "こどもたちのわらいごえ", "にちようびのしずけさ", "しょくぶつえんのどうぶつ", "たんじょうびのおいわい",
+"ふゆやすみのけいかく", "うたのおにいさん", "でんしゃごっこたのしい", "てんきよほうをみる", "おおあめのひのあさ", "ひるやすみのじかん", "ふとんのなかでねむる", "やまのぼりのじゅんび", "こどもべやのおもちゃ", "えんそくびよりのひ",
+"ほしぞらのしたでねる", "ひまわりばたけのなつ", "がっこうからのかえりみち", "せんせいのおはなし", "おとしだまぶくろつくり", "しゃしんたてをつくる", "うみべのまちでくらす", "なつまつりにいく", "きょうのしゅくだい", "ぬいぐるみのせいり",
+"きんぎょすくいのれんしゅう", "おかしやさんでかう", "てつぼうあそびのじかん", "よるごはんのしたく", "はるのはなまつり", "あきのこうえんさんぽ", "ゆきだるまをつくろう", "すずしいかぜがふく", "でんきがついている", "からあげべんとうづくり",
+"せみしぐれのなつやすみ", "まどからみえるけしき", "ろうかをあるくおと", "けんかしたあとでなかなおり", "かんらんしゃにのった", "こうさてんをわたる", "いちごがりにいく", "かおのにがおえをかく", "しんかんせんにのった", "あかしんごうをまつ",
+"ほしぞらほてるにとまる", "しょくいんしつにはいる", "りょこうかばんをつめる", "せいとかいちょうせん", "はれたそらをみあげる", "しずかなよるがすき", "ようちえんのおゆうぎかい", "まくらもとにおく", "ふとんばこにしまう", "いえでんわにでる",
+"すいえいきょうしつにはいる", "もんしろちょうをみつけた", "せんぷうきをまわす", "みかんばこをうけとる", "おんがくしつでうたう", "ふゆふくをきる", "けいたいでんわをつかう", "としょかんでほんをかりる", "ざぶとんをたたむ", "つくえのうえをかたづける",
+"やきそばたいかいにでる", "たいいくかんでうんどう", "ようふくだんすをあける", "あめのひのさんぽ", "でんしゃのなかはしずか", "よるのまちをあるく", "りすのおやこをみる", "やまのうえからみるけしき", "ひこうきにのるひ", "てんじかいにいく",
+"せんせいにしつもんする", "はなやしきであそぶ", "こうえんのすべりだい", "おおあめふりのごご", "はしごしゃがくる", "ぬのきれをぬう", "おりがみでつるをおる", "のりまきをまく", "つきよのよるにねる", "つばさぐみのへやをそうじ",
+"まんがをかりてよむ", "かがみのまえでみだしなみ", "ひるごはんをたべた", "ふゆのよるはさむい", "しらゆきひめのおはなし", "でんわばんごうをおぼえる", "おおきなおとがした", "あたたかいおちゃをいれる", "えんちょうせんせいのおはなし", "てがみをかくじかん"];
+
+const wordList = ["CAT", "DOG", "SUN", "MAP", "HAT", "CAR", "BOX", "PEN", "BAT", "RUN",
+"BUS", "BAG", "TOP", "TOY", "BED", "RAT", "HEN", "CUP", "LOG", "NUT",
+"JAM", "NET", "VAN", "ZIP", "WEB", "TIN", "MUG", "EGG", "CAP", "FIG",
+"FAN", "TAG", "KEY", "ARM", "LEG", "EAR", "EYE", "ICE", "OIL", "SEA",
+"SAD", "FUN", "WIN", "WAR", "RED", "SKY", "JET", "BUN", "GUM", "BEE",
+"ANT", "OWL", "PIG", "COW", "FOX", "APE", "BUG", "INK", "PAD", "LID",
+"JAR", "HOP", "HIT", "DIG", "CUT", "BUY", "EAT", "SEE", "GET", "SIT",
+"TRY", "FLY", "DRY", "PAY", "TAP", "ZIP", "ROW", "WET", "NEW", "OLD",
+"HOT", "BIG", "LOW", "TOP", "OFF", "ODD", "YOU", "HER", "HIM", "AND",
+"YES", "NOT", "ALL", "ANY", "ONE", "TWO", "TEN", "MAN", "WAX", "TOE","HELLO", "WORLD", "MORSE", "CODE", 
+"JAPAN", "RADIO", "SIGNAL", "ALPHA", "BRAVO", "THANK",
+"TREE", "FISH", "LION", "BIRD", "FROG", "WOLF", "DUCK", "DEER", "GOAT", "BEAR",
+"BOOK", "NOTE", "PAGE", "PENY", "LAMP", "BELL", "FORK", "SPOO", "MUGS", "CUPS",
+"CHAT", "CALL", "TALK", "WALK", "JUMP", "RUNS", "DIVE", "MOVE", "TURN", "STOP",
+"OPEN", "CLOSE", "PUSH", "PULL", "DROP", "GRAB", "SEND", "JOIN", "EXIT", "LOAD",
+"LOVE", "HATE", "CARE", "HELP", "FEEL", "HOPE", "GIVE", "TAKE", "SEEK", "FIND",
+"MAKE", "COOK", "BAKE", "BOIL", "READ", "PLAY", "DRAW", "TYPE", "KNIT", "SING",
+"BLUE", "PINK", "GRAY", "GOLD", "DARK", "LITE", "WARM", "COLD", "COOL", "DEEP",
+"FAST", "SLOW", "HIGH", "LOWE", "NEAR", "FARL", "LEFT", "RITE", "UPON", "DOWN",
+"CITY", "TOWN", "HOME", "SHOP", "BANK", "ROAD", "PATH", "WALL", "ROOF", "DOOR",
+"HEAD", "HAND", "EARS", "NOSE", "EYES", "LEGS", "FEET", "BACK", "NECK", "FACE","APPLE", "MOUSE", "HOUSE", "PLANE", "TRAIN", "SHEEP", "HORSE", "BREAD", "WATER", "HONEY",
+"GRAPE", "MANGO", "LEMON", "BERRY", "PEACH", "CHAIR", "TABLE", "SPOON", "PLATE", "CUPCA",
+"SMILE", "LAUGH", "CRYIN", "SHOUT", "VOICE", "SOUND", "NOISE", "QUIET", "WRITE", "READS",
+"TEACH", "LEARN", "STUDY", "SLEEP", "DREAM", "THINK", "GUESS", "SHARE", "BRUSH", "CLEAN",
+"BUILD", "BREAK", "CARRY", "BRING", "CLOSE", "OPENN", "ENTER", "LEAVE", "STAND", "SITTN",
+"ENJOY", "WATCH", "TASTE", "SMELL", "TOUCH", "GLOVE", "SHIRT", "DRESS", "SKIRT", "PANTS",
+"SHOES", "SOCKS", "HATTS", "SCARE", "SWEET", "SALTY", "SPICY", "BITER", "MELON", "FRUIT",
+"LIGHT", "DARKS", "STARS", "CLOUD", "STORM", "WINDY", "RAINS", "SNOWY", "SUNNY", "WAVES",
+"BEACH", "OCEAN", "RIVER", "MOUNN", "FIELD", "HILLS", "GRASS", "TREES", "PLANT", "EARTH",
+"WORLD", "PEACE", "HEART", "HAPPY", "ANGRY", "SADLY", "TIRED", "FUNNY", "BRAVE", "LOVEL","PLANET", "FAMILY", "PEOPLE", "ANIMAL", "BOTTLE", "BREADS", "BUTTER", "CANDLE", "CARPET", "CASTLE",
+"DOCTOR", "DRIVER", "ENGINE", "FLOORS", "FLOWER", "GARDEN", "GIRAFF", "HAMMER", "HEALTH", "HONEST",
+"HUNGRY", "JACKET", "JUNGLE", "KITTEN", "LADDER", "LAKEFR", "LAUNCH", "LITTLE", "MARKET", "MEMORY",
+"MIRROR", "MONKEY", "MOTHER", "MOUNTA", "NAPKIN", "NEEDLE", "NATURE", "OCEANS", "OFFICE", "ORANGE",
+"PENCIL", "PEPPER", "PEANUT", "POCKET", "POLICE", "PURPLE", "PUZZLE", "RABBIT", "RAINNY", "READER",
+"REMOTE", "RESCUE", "RIBBON", "ROCKET", "SAFETY", "SCHOOL", "SCREEN", "SECRET", "SHIELD", "SILENT",
+"SISTER", "SLEEPY", "SMILES", "SNAKES", "SPOONS", "SPRING", "STARRY", "STREAM", "STRONG", "SUGARL",
+"SUMMER", "SWINGS", "TABLES", "TENNIS", "THINKS", "THIRST", "TICKLE", "TIGERS", "TISSUE", "TUNNEL",
+"TURKEY", "UMBREL", "VOICES", "WARMTH", "WINDOW", "WINTER", "WONDER", "WOODEN", "WRITER", "YELLOW",
+"ZEBRAS", "ACTION", "ADVENT", "BEAUTY", "BREEZE", "BROWSE", "BUTTON", "CARTON", "CIRCLE", "CUSTOM","BALANCE", "ANIMALS", "BOTTLES", "CAPTURE", "CHARITY", "CIRCLES", "CLOTHES", "COLLARS", "COMFORT", "COMPASS",
+"CONTACT", "CONTAIN", "CORRECT", "COUNTRY", "CRAYONS", "CRICKET", "DANCING", "DANGER", "DECIDED", "DELIGHT",
+"DESSERT", "DIGITAL", "DOCTORS", "DRAWING", "DRIVERS", "DROUGHT", "ELEGANT", "EMOTION", "ENJOYED", "EXCITED",
+"FARMING", "FASHION", "FEATURE", "FEATHERS", "FERRIES", "FINDING", "FISHING", "FLOWERS", "FOOTAGE", "FORESTS",
+"FREEDOM", "FRIENDS", "GALLONS", "GARMENT", "GIGGLES", "GRANDMA", "GRAPHIC", "GUITARS", "HANDBAG", "HARMONY",
+"HARVEST", "HEALTHY", "HELPFUL", "HISTORY", "HOLIDAY", "HONESTY", "HOSPICE", "IMAGINE", "INSECTS", "ISLANDS",
+"JOURNEY", "JUSTICE", "KITCHEN", "LANGUAG", "LANTERN", "LARGEST", "LAUGHTE", "LEARNER", "LEAVING", "LIBRARY",
+"LIGHTER", "LOCATED", "LOOKING", "MACHINE", "MANKIND", "MARKETS", "MEETING", "MESSAGE", "MISSION", "MISTAKE",
+"MONSTER", "MORNING", "MOTHERS", "MOUNTAI", "MUSICAL", "NATURAL", "NEEDING", "NESTING", "NICESTO", "NUMBERS",
+"OFFICER", "OPTIONS", "OUTSIDE", "PACKAGE", "PAINTER", "PATTERN", "PICKING", "PLAYERS", "POPULAR", "PRESENT"
+
+];
+
+ function stopMorse() {
+  isPlaying = false;
+
+  // すべての再生タイマーをクリア
+  morseTimeouts.forEach((id) => clearTimeout(id));
+  morseTimeouts = [];
+
+  // AudioContext を閉じてリセット
+  if (currentAudioCtx) {
+    currentAudioCtx.close();
+    currentAudioCtx = null;
+  }
+
+  // UIの状態をリセット
+  const playBtn = document.getElementById("playButton");
+  const stopBtn = document.getElementById("stopButton");
+  const indicator = document.getElementById("morseIndicator");
+
+  playBtn.disabled = false;
+  playBtn.textContent = "再生";
+  stopBtn.disabled = true;
+  indicator.textContent = "";
+  indicator.style.animation = "none";
+
+  // カーソル位置リセット
+  const textArea = document.getElementById("inputText");
+  textArea.setSelectionRange(0, 0);
+}
+
+function getMode() {
+  return document.querySelector('input[name="mode"]:checked').value;
+}
+
+function startLearningMode() {
+  const mode = getMode();
+  let char, morse;
+  if (mode === "roman") {
+    const letters = Object.keys(morseDict);
+    char = letters[Math.floor(Math.random() * letters.length)];
+    morse = morseDict[char];
+  } else {
+    const kana = Object.keys(kanaDict);
+    char = kana[Math.floor(Math.random() * kana.length)];
+    morse = kanaDict[char];
+  }
+
+  document.getElementById("output").innerText = `出題: ${morse}\n再生中...`;
+
+
+//playAudioFromMorse(morse);
+ playMorse2(char);
+function playMorse2(text2) {
+  stopMorse(); // 前回の再生を止める
+
+  if (isPlaying) return;
+  isPlaying = true;
+  morseTimeouts = [];
+
+  const playBtn = document.getElementById("playButton");
+  const stopBtn = document.getElementById("stopButton");
+  const indicator = document.getElementById("morseIndicator");
+  const textArea = document.getElementById("inputText");
+
+  playBtn.disabled = true;
+  playBtn.textContent = "再生中...";
+  stopBtn.disabled = false;
+
+  const originalText = text2;
+  const text = convertText(originalText.toUpperCase());
+  const { morseArr, map } = textToMorseWithMap(text);
+
+  const speed = parseFloat(document.getElementById("speedRange").value);
+  const freq = parseFloat(document.getElementById("freqRange").value);
+  const dotTime = (60 / ((speed + 50) * 50)) * 10; // ドット長（秒）
+
+  currentAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  let time = currentAudioCtx.currentTime;
+
+  indicator.style.animation = "blink 0.5s ease-in-out infinite alternate";
+
+  function addBeep(duration, symbol, charIndex) {
+    if (!isPlaying) return;
+    const osc = currentAudioCtx.createOscillator();
+    const gain = currentAudioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq, time);
+    gain.gain.setValueAtTime(1, time);
+    gain.gain.setValueAtTime(0, time + duration);
+    osc.connect(gain);
+    gain.connect(currentAudioCtx.destination);
+    osc.start(time);
+    osc.stop(time + duration);
+
+    const showTime = (time - currentAudioCtx.currentTime) * 1000;
+    const timeoutId = setTimeout(() => {
+      if (!isPlaying) return;
+      //textArea.focus();
+      //textArea.setSelectionRange(charIndex, charIndex + 1);
+      indicator.textContent = symbol;
+    }, showTime);
+    morseTimeouts.push(timeoutId);
+
+    time += duration;
+  }
+
+  function addSilence(duration) {
+    time += duration;
+  }
+
+  for (let i = 0; i < morseArr.length; i++) {
+    const letter = morseArr[i];
+    const charIndex = map[i] || 0;
+    const currentChar = text[charIndex];
+    const nextChar = text[map[i + 1]];
+
+    // ドット・ダッシュ音と記号間無音（1ドット）
+    for (let j = 0; j < letter.length; j++) {
+      const symbol = letter[j];
+      if (symbol === ".") {
+        addBeep(dotTime, ".", charIndex);
+      } else if (symbol === "-") {
+        addBeep(dotTime * 3, "-", charIndex);
+      }
+      addSilence(dotTime); // 記号間の無音
+    }
+
+    // 単語間（スペースを挟む）なら7ドット、そうでなければ3ドット
+    if (i < morseArr.length - 1) {
+      if (currentChar === "/" || nextChar === "/") {
+        addSilence(dotTime * 7); // 単語間
+      } else {
+        addSilence(dotTime * 3); // 文字間
+      }
+    }
+  }
+
+  // 再生終了後のリセット処理
+  const endTimeout = setTimeout(() => {
+    if (!isPlaying) return;
+    isPlaying = false;
+    morseTimeouts = [];
+    playBtn.disabled = false;
+    playBtn.textContent = "再生";
+    stopBtn.disabled = true;
+    indicator.textContent = "";
+    indicator.style.animation = "none";
+    currentAudioCtx.close();
+    currentAudioCtx = null;
+  }, (time - currentAudioCtx.currentTime) * 1000 + 500);
+  morseTimeouts.push(endTimeout);
+}
+
+setTimeout(() => {
+    const answer = prompt(`このモールス符号の${mode === "roman" ? "英字" : "カナ"}は？`);
+    if (answer && answer.toUpperCase() === char) {
+      alert("正解です！");
+    } else {
+      alert(`不正解。正解は ${char} です。`);
+    }
+  }, 2000);
+}
+
+function startWordQuiz() {
+  const mode = getMode();
+  let word;
+  if (mode === "roman") {
+    word = wordList[Math.floor(Math.random() * wordList.length)];
+  } else {
+    word = kanaWordList[Math.floor(Math.random() * kanaWordList.length)];
+  }
+
+ // const morse = textToMorse(word);
+ // document.getElementById("output").innerText = `出題された単語のモールス符号:\n${morse}\n再生中...`;
+  //playAudioFromMorse(morse);
+ playMorse2(word);
+function playMorse2(text2) {
+  stopMorse(); // 前回の再生を止める
+
+  if (isPlaying) return;
+  isPlaying = true;
+  morseTimeouts = [];
+
+  const playBtn = document.getElementById("playButton");
+  const stopBtn = document.getElementById("stopButton");
+  const indicator = document.getElementById("morseIndicator");
+  const textArea = document.getElementById("inputText");
+
+  playBtn.disabled = true;
+  playBtn.textContent = "再生中...";
+  stopBtn.disabled = false;
+
+  const originalText = text2;
+  const text = convertText(originalText.toUpperCase());
+  const { morseArr, map } = textToMorseWithMap(text);
+
+  const speed = parseFloat(document.getElementById("speedRange").value);
+  const freq = parseFloat(document.getElementById("freqRange").value);
+  const dotTime = (60 / ((speed + 50) * 50)) * 10; // ドット長（秒）
+
+  currentAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  let time = currentAudioCtx.currentTime;
+
+  indicator.style.animation = "blink 0.5s ease-in-out infinite alternate";
+
+  function addBeep(duration, symbol, charIndex) {
+    if (!isPlaying) return;
+    const osc = currentAudioCtx.createOscillator();
+    const gain = currentAudioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq, time);
+    gain.gain.setValueAtTime(1, time);
+    gain.gain.setValueAtTime(0, time + duration);
+    osc.connect(gain);
+    gain.connect(currentAudioCtx.destination);
+    osc.start(time);
+    osc.stop(time + duration);
+
+    const showTime = (time - currentAudioCtx.currentTime) * 1000;
+    const timeoutId = setTimeout(() => {
+      if (!isPlaying) return;
+      //textArea.focus();
+      //textArea.setSelectionRange(charIndex, charIndex + 1);
+      indicator.textContent = symbol;
+    }, showTime);
+    morseTimeouts.push(timeoutId);
+
+    time += duration;
+  }
+
+  function addSilence(duration) {
+    time += duration;
+  }
+
+  for (let i = 0; i < morseArr.length; i++) {
+    const letter = morseArr[i];
+    const charIndex = map[i] || 0;
+    const currentChar = text[charIndex];
+    const nextChar = text[map[i + 1]];
+
+    // ドット・ダッシュ音と記号間無音（1ドット）
+    for (let j = 0; j < letter.length; j++) {
+      const symbol = letter[j];
+      if (symbol === ".") {
+        addBeep(dotTime, ".", charIndex);
+      } else if (symbol === "-") {
+        addBeep(dotTime * 3, "-", charIndex);
+      }
+      addSilence(dotTime); // 記号間の無音
+    }
+
+    // 単語間（スペースを挟む）なら7ドット、そうでなければ3ドット
+    if (i < morseArr.length - 1) {
+      if (currentChar === "/" || nextChar === "/") {
+        addSilence(dotTime * 7); // 単語間
+      } else {
+        addSilence(dotTime * 3); // 文字間
+      }
+    }
+  }
+
+  // 再生終了後のリセット処理
+  const endTimeout = setTimeout(() => {
+    if (!isPlaying) return;
+    isPlaying = false;
+    morseTimeouts = [];
+    playBtn.disabled = false;
+    playBtn.textContent = "再生";
+    stopBtn.disabled = true;
+    indicator.textContent = "";
+    indicator.style.animation = "none";
+    currentAudioCtx.close();
+    currentAudioCtx = null;
+  }, (time - currentAudioCtx.currentTime) * 1000 + 500);
+  morseTimeouts.push(endTimeout);
+}
+
+
+  setTimeout(() => {
+    const answer = prompt(`このモールス符号はどの単語？（${mode === "roman" ? "英語大文字" : "カタカナ"}で入力）`);
+    if (answer && answer.toUpperCase() === word) {
+      alert("正解です！");
+    } else {
+      alert(`不正解。正解は ${word} です。`);
+    }
+  }, word.length * 1000);
+}
+
+      function saveTextState() {
+        const textarea = document.getElementById("inputText")
+        localStorage.setItem("savedText", textarea.value)
+        localStorage.setItem("cursorPosition", textarea.selectionStart)
+      }
+
+      function restoreTextState() {
+        const savedText = localStorage.getItem("savedText")
+        const savedCursor = localStorage.getItem("cursorPosition")
+        if (savedText !== null) {
+          const textarea = document.getElementById("inputText")
+          textarea.value = savedText
+          if (savedCursor !== null) {
+            const pos = parseInt(savedCursor, 10)
+            textarea.setSelectionRange(pos, pos)
+          }
+        }
+      }
+
+      function loadContent() {
+        restoreTextState()
+      }
+
+      // 状態を保存
+      function saveTextState() {
+        const textarea = document.getElementById("inputText")
+        localStorage.setItem("savedText", textarea.value)
+        localStorage.setItem("cursorPosition", textarea.selectionStart)
+      }
+
+      // 状態を復元
+      function restoreTextState() {
+        const savedText = localStorage.getItem("savedText")
+        const savedCursor = localStorage.getItem("cursorPosition")
+        const textarea = document.getElementById("inputText")
+
+        if (savedText !== null) {
+          textarea.value = savedText
+          if (savedCursor !== null) {
+            const pos = parseInt(savedCursor, 10)
+            textarea.setSelectionRange(pos, pos)
+          }
+        }
+      }
+
+
+      //let audioCtx = null; // AudioContext をグローバル化して制御
+      // 辞書を定義（名前、駅名、列車番号、住所、本文など）
+      // 特別なモールス符号マップ
+      const specialMorseMap = {
+        "[BT]": "-...-",
+        "[AR]": ".-.-.",
+        "[ほれ]": "-..---",
+        "[らた]": "...-.",
+      }
+      var dictionary = {
+        names: [
+          "わたなべけんじ",
+          "たかはしゆうすけ",
+          "いとうまり",
+          "さとうあきこ",
+          "たむらだいすけ",
+          "きたむらあい",
+          "みやけけん",
+          "やまぐちゆうき",
+          "おおたけたけし",
+          "ほうせんたくま",
+          "かとうあや",
+          "おおわきしんや",
+          "おおつかひろき",
+          "なかむらゆり",
+          "にしおかこうた",
+          "わかばやしこうへい",
+          "たけだちほ",
+          "しみずみさと",
+          "まつもとたくみ",
+          "あきやまつばさ",
+          "さとうさやか",
+          "おおやまあい",
+          "しんどうけん",
+          "よこたやすひろ",
+          "あきおかまり",
+          "ふじおかたくや",
+          "えんどうゆうた",
+          "やまぐちなおき",
+          "はせべともや",
+          "すずきまゆ",
+          "さくらや",
+          "ひまわりや",
+          "ゆうきわん",
+          "おおたけしょっぷ",
+          "みなとあん",
+          "かんなえん",
+          "みずきこう",
+          "しろゆり",
+          "あやめや",
+          "あおばや",
+          "うめしん",
+          "りんどう",
+          "かつらあん",
+          "しらゆきや",
+          "つばきまる",
+          "とりはな",
+          "くろまるや",
+          "りゅうきんや",
+          "いずみうら",
+          "ふじわらや",
+        ],
+        stations: [
+          "ほっかいどうすすきのむせん",
+          "さっぽろむせん",
+          "なごやむせん",
+          "おおさかむせん",
+          "はこだてむせん",
+          "しずおかむせん",
+          "みやざきむせん",
+          "ふくおかむせん",
+          "いわてけんむせん",
+          "いちかわむせん",
+          "きょうとむせん",
+          "おおつむせん",
+          "あいちけんむせん",
+          "こうべむせん",
+          "まつやまむせん",
+          "わかやまむせん",
+          "おおやまむせん",
+          "しおばらむせん",
+          "おうみむせん",
+          "たくさんむせん",
+          "あおもりむせん",
+          "さくらむせん",
+          "しらおいむせん",
+          "ゆうきむせん",
+          "むろらんむせん",
+        ],
+        addresses: [
+          "さっぽろしみなみじょうあたり",
+          "おおさかしほんまち",
+          "ほっかいどうすすきのむせん",
+          "いわきしおおみやまちよんばん",
+          "はこだてしきたみなみまち",
+          "みやざきしこうほう",
+          "ふくおかしおおきんぐ",
+          "いちかわしあしびな",
+          "しずおかしとおじ",
+          "ゆうきしおおおか",
+          "ふたばしこめい",
+          "みよししまつだ",
+          "きょうとしきた",
+          "あいちけんあいあい",
+          "まつやましごお",
+        ],
+        messages: {
+          line1: [
+            "しぜんは　ことばをもたないが　すべてをつたえてくれる　ひかり　かぜ　みず　いのち　そのすがたが　こたえになる",
+            "はるのひざしは　あたたかく　ゆきどけのしたから　あたらしいいのちが　そっとめをさます",
+            "たいようのひかりが　けわしいやまをてらすとき　こころのなかにも　ひかりがさしこむ",
+            "まいあさ　そらをみあげる　くもがながれ　とりがとび　けさもいのちが　ここにあることをしる",
+            "こどもがえがおで　はなにてをのばすとき　しぜんは　そのえがおをみて　またいきるちからをくれる",
+            "ゆきはしずかにおちて　すべてをつつむ　けがれをけして　すべてをふりだしにもどすように",
+            "さざなみのこえに　みみをすませば　ひとのいかりや　かなしみさえ　やさしくとかしてくれる",
+            "もりのざわめきは　いのちのうた　きぎは　けむりのようなこえで　しずかにかたりかけてくる",
+            "いちりんのはなが　つちからうまれ　そらをむく　そのけなげさに　こころをうたれる",
+            "あめあがりのにじは　しぜんからのメッセージ　つらいあとのよろこびは　まっていればきっとくる",
+            "かわのながれは　ときをこえて　けっしておなじすがたにはもどらない　だからこそ　いまがたいせつ",
+            "いのちのぬくもりは　どうぶつたちのめにもやどる　ひともまた　そのなかのひとつ",
+            "しぜんは　おしえない　しかしたしかに　すべてをしらせてくれる　こころのめでみれば",
+            "おちばのじゅうたんを　ふみしめてあるくとき　じぶんもまた　しぜんのいちぶだときづく",
+            "やまのちょうじょうにたつと　ちいさなじぶんにきづく　そのちいささが　ほんとうのつよさになる",
+            "あさつゆは　しらないあいだに　はなにそっとふれている　やさしさは　いつもさりげない",
+            "たいようにてらされた　きのみのつやに　しぜんのせいめいのつよさをみる",
+            "よるのしずけさに　つきのひかりがやどるとき　ひともまた　ふりかえり　こころをととのえる",
+            "けはいにきづく　そのしゅんかんに　こころがひらかれ　しぜんとつながっていく",
+            "みずのながれをみつめるだけで　こころのおくの　ざわめきがしずまっていく",
+            "かぜがふいて　きがゆれ　こもれびがゆれる　それだけで　いのちはつながっているとおもう",
+            "つちは　すべてをうけいれて　またはぐくむ　そのおおきさに　にんげんはいつもまなぶ",
+            "しんりんのしずけさは　にんげんのこころをうつしだすかがみ",
+            "しぜんとともにあるとき　じぶんがじぶんらしくいられる",
+            "とりのうたごえが　あさをつれてくる　それはめざめのしるし",
+            "やまもかわも　けっしておなじけしきはない　すべてはいまだけのもの",
+            "そらのいろは　にんげんのこころのうつろいを　そっとうつしだす",
+            "どうぶつたちのまなざしには　けがれがない　そのせいけつさに　にんげんはまけている",
+            "きせつは　やってくるのではなく　きづけばそこにある",
+            "ほしのまたたきが　よるのしじまに　ちいさなゆめをはこぶ",
+          ],
+          line2: [
+            "しぜんは　いきをしている　それにきづいたとき　このちきゅうとつながっているとおもう",
+            "もりのしずけさに　しらずしらず　いかりもなみだも　ながされていく",
+            "そらをみあげて　ためいきをひとつ　くもがわらって　それをつれていってくれた",
+            "みどりのひかりが　こころのつかれをいやしてくれる　ただそこにいるだけでいい",
+            "すなをふむあしあとも　やがてなみにけされる　だからいまをたいせつに",
+            "しぜんをこわすのは　いともたやすい　でもなおすのは　とてもながいじかんがかかる",
+            "いのちは　あたえられたもの　それをたいせつにすることが　おれいになる",
+            "けしてうばうためでなく　ともにいきるために　しぜんはある",
+            "とりのさえずりが　こころのこおりをとかす　こえなきせかいに　ほんとうのことばがある",
+            "きのかげで　ひとやすみするとき　それだけで　いのちはみたされる",
+            "たにまのしめりけは　あらたなはなのめを　そっとはぐくむ",
+            "やまのみちに　ちいさなはながさいていた　だれもみていなくても　いのちはそこにある",
+            "ひとりであるくとき　しぜんはともだちになってくれる",
+            "まいにちかわるそらのいろ　それは　きせきのつみかさね",
+            "どうぶつたちのいとなみは　しずかで　でもたしかで　いのちをまもっている",
+            "たいようのぬくもりは　すべてにひとしくふりそそぐ",
+            "ひかりのなかに　あんしんがあり　かげのなかに　まなびがある",
+            "つちのにおいは　おもいでをよびおこす　にんげんのきおくも　しぜんのなかにある",
+            "こどもたちのえがおが　しぜんとふれあうとき　ほんとうのえがおになる",
+            "なにげないいちにちのなかに　しぜんは　しずかにしゅくふくをおとしている",
+            "おおきなきのしたで　あめをしのいだことを　わすれてはいけない",
+            "いのちあるものは　みな　なにかのやくわりをもっている",
+            "みどりがすくなくなれば　こころもかわいていく",
+            "しぜんとともに　わらい　しぜんとともに　ないていい",
+            "いちばんなかよくなれるのは　ことばのいらないともだち",
+            "しんりんのうたが　きこえるとき　こころはうたをおぼえる",
+            "ゆうやけのそらに　いのちがやすらぐじかんがながれていく",
+            "しんこきゅうひとつで　みどりのなかにとけこめる",
+            "たいせつなのは　すぐそばにあるけしきと　そのけしきにきづけるじぶん",
+            "しぜんがきえていくことは　じぶんをうしなうこととおなじ",
+          ],
+          line3: [
+            "あさひがのぼるとき　すべてのいのちが　またはじまる　それだけでありがたい",
+            "どうぶつのひとみは　かがみ　ひとのこころをうつしだす",
+            "はなのかおりは　おもいでもよびおこす　しぜんはきおくのつづき",
+            "おおきなそらに　だいじょうぶといわれたきがした　そのひとことですくわれるときがある",
+            "きせつがうつろうたびに　じぶんもまたすこしずつかわっている",
+            "しろいつきが　やまをてらすよる　なにもいわずに　まもってくれている",
+            "もりのこえにみみをかたむければ　かならずこころのおとがきこえてくる",
+            "きぎのなみだは　めにみえないけれど　ちをはしり　いのちをつないでいる",
+            "いちりんのこすもすが　かぜになびく　それだけで　ひかりがみちる",
+            "あめにぬれたはなは　いっそううつくしく　つよくなる",
+            "たいようとともにめをさまし　ほしとともにねむる　それがほんとうのくらしかた",
+            "どうぶつたちがやすらぐばしょは　ひともまた　やすらげるばしょ",
+            "せんたくものが　そらをゆらす　しぜんとともにあるくらし",
+            "あおいそらに　はねをひろげるとりのように　こころもとびたつ",
+            "なみのおとは　こころのざわめきをしずめてくれる",
+            "まいにちのようにあるしぜんのけしき　それがほんとうはいちばんのたからもの",
+            "しぜんのなかでは　どんなちいさないのちも　おおきなやくわりをもっている",
+            "つきはしずかに　すべてをうけいれてくれる　そのやさしさに　ひとはならいたい",
+            "けっしてうらぎらないのが　しぜんのぬくもり",
+            "しろいはなは　けがれなきこころのしるし",
+            "たいふうのあとのそらが　いちばんきれいなのは　なみだのあとのえがおとおなじ",
+            "けしきは　こころをうつしだすえ",
+            "はながわらうと　こどももわらう　やさしさはつたわっていく",
+            "しぜんといっしょに　いきをあわせると　いのちがたしかにかんじられる",
+            "いちにちのはじまりに　ひかりをあびる　それだけで　ありがとうといいたくなる",
+            "やまにのぼると　かぜがほめてくれるきがする",
+            "ちいさなせいぶつたちが　しずかにせかいをささえている",
+            "しんりんよくは　からだだけでなく　こころもあらってくれる",
+            "たいようも　みずも　はなも　ちも　すべてつながっているから　いまがある",
+            "しぜんをまもることは　じぶんをまもること",
+          ],
+        },
+      }
+
+      // 和数字に変換する関数（修正）
+      function toJapaneseNumber(num) {
+        const kanjiNumbers = [
+          "〇",
+          "一",
+          "二",
+          "三",
+          "四",
+          "五",
+          "六",
+          "七",
+          "八",
+          "九",
+        ]
+        if (num <= 9) {
+          return kanjiNumbers[num]
+        } else {
+          let result = ""
+          let digits = num.toString().split("")
+          for (let i = 0; i < digits.length; i++) {
+            result += kanjiNumbers[parseInt(digits[i])]
+          }
+          return result
+        }
+      }
+
+      // 列車番号を生成する関数
+      function generateTrainNumber() {
+        const firstPart =
+          /*toJapaneseNumber*/ Math.floor(Math.random() * 990) + 10 // 和数字2桁から3桁
+        const middlePart = toJapaneseNumber(Math.floor(Math.random() * 13)) // 和数字0から12
+        const lastPart = toJapaneseNumber(Math.floor(Math.random() * 60)) // 和数字0から59
+        const suffix = Math.random() < 0.5 ? "せ" : "こ" // 「せ」か「こ」をランダムに選択
+
+        return `${firstPart} ${suffix}${toJapaneseNumber(Math.floor(Math.random() * 13))}、${toJapaneseNumber(Math.floor(Math.random() * 60))}`
+      }
+
+      // 電報のテンプレート
+      var telegraphTemplate = {
+        station_phrase: "{station} {train_number}、\n{address} [BT]",
+        line1: "[ほれ] {line1_message}",
+        line2: "{line2_message}",
+        line3: "{line3_message} [らた]",
+      }
+
+      // ランダムに辞書から選択する関数
+      function getRandomItem(arr) {
+        return arr[Math.floor(Math.random() * arr.length)]
+      }
+
+      // 小文字を大文字に変換する関数
+      function toUpperCase(text) {
+        return text.toUpperCase()
+      }
+     
+      function textToMorse(text) {
+        let result = ""
+        let i = 0
+        while (i < text.length) {
+          let found = false
+          for (const key in specialMorseMap) {
+            if (text.startsWith(key, i)) {
+              result += specialMorseMap[key] + " "
+              i += key.length
+              found = true
+              break
+            }
+          }
+          if (!found) {
+            const char = text[i].toUpperCase()
+            if (morseCodeMap[char]) {
+              result += morseCodeMap[char] + " "
+            }
+            i++
+          }
+        }
+        return result.trim()
+      }
+
+      const DAKUTEN = "゛"
+      const HANDAKUTEN = "゜"
+
+      const dakutenMap = {
+        が: "か" + DAKUTEN,
+        ぎ: "き" + DAKUTEN,
+        ぐ: "く" + DAKUTEN,
+        げ: "け" + DAKUTEN,
+        ご: "こ" + DAKUTEN,
+        ざ: "さ" + DAKUTEN,
+        じ: "し" + DAKUTEN,
+        ず: "す" + DAKUTEN,
+        ぜ: "せ" + DAKUTEN,
+        ぞ: "そ" + DAKUTEN,
+        だ: "た" + DAKUTEN,
+        ぢ: "ち" + DAKUTEN,
+        づ: "つ" + DAKUTEN,
+        で: "て" + DAKUTEN,
+        ど: "と" + DAKUTEN,
+        ば: "は" + DAKUTEN,
+        び: "ひ" + DAKUTEN,
+        ぶ: "ふ" + DAKUTEN,
+        べ: "へ" + DAKUTEN,
+        ぼ: "ほ" + DAKUTEN,
+        ぱ: "は" + HANDAKUTEN,
+        ぴ: "ひ" + HANDAKUTEN,
+        ぷ: "ふ" + HANDAKUTEN,
+        ぺ: "へ" + HANDAKUTEN,
+        ぽ: "ほ" + HANDAKUTEN,
+        ガ: "カ" + DAKUTEN,
+        ギ: "キ" + DAKUTEN,
+        グ: "ク" + DAKUTEN,
+        ゲ: "ケ" + DAKUTEN,
+        ゴ: "コ" + DAKUTEN,
+        ザ: "サ" + DAKUTEN,
+        ジ: "シ" + DAKUTEN,
+        ズ: "ス" + DAKUTEN,
+        ゼ: "セ" + DAKUTEN,
+        ゾ: "ソ" + DAKUTEN,
+        ダ: "タ" + DAKUTEN,
+        ヂ: "チ" + DAKUTEN,
+        ヅ: "ツ" + DAKUTEN,
+        デ: "テ" + DAKUTEN,
+        ド: "ト" + DAKUTEN,
+        バ: "ハ" + DAKUTEN,
+        ビ: "ヒ" + DAKUTEN,
+        ブ: "フ" + DAKUTEN,
+        ベ: "ヘ" + DAKUTEN,
+        ボ: "ホ" + DAKUTEN,
+        パ: "ハ" + HANDAKUTEN,
+        ピ: "ヒ" + HANDAKUTEN,
+        プ: "フ" + HANDAKUTEN,
+        ペ: "ヘ" + HANDAKUTEN,
+        ポ: "ホ" + HANDAKUTEN,
+      }
+    
+      // モールス信号定義（英数字とひらがな、カタカナに対応）
+      // モールス信号定義（英数字とひらがな、カタカナに対応）
+      const morseCodeMap = {
+        A: ".-",
+        B: "-...",
+        C: "-.-.",
+        D: "-..",
+        E: ".",
+        F: "..-.",
+        G: "--.",
+        H: "....",
+        I: "..",
+        J: ".---",
+        K: "-.-",
+        L: ".-..",
+        M: "--",
+        N: "-.",
+        O: "---",
+        P: ".--.",
+        Q: "--.-",
+        R: ".-.",
+        S: "...",
+        T: "-",
+        U: "..-",
+        V: "...-",
+        W: ".--",
+        X: "-..-",
+        Y: "-.--",
+        Z: "--..",
+        1: ".----",
+        2: "..---",
+        3: "...--",
+        4: "....-",
+        5: ".....",
+        6: "-....",
+        7: "--...",
+        8: "---..",
+        9: "----.",
+        0: "-----",
+        "１": ".----",
+        "２": "..---",
+        "３": "...--",
+        "４": "....-",
+        "５": ".....",
+        "６": "-....",
+        "７": "--...",
+        "８": "---..",
+        "９": "----.",
+        "０": "-----",
+        一: ".-",
+        二: "..-",
+        三: "...-",
+        四: "....-",
+        五: ".....",
+        六: "-....",
+        七: "-...",
+        八: "-..",
+        九: "-.",
+        〇: "-",
+        " ": " ", // 空白文字はスラッシュに対応
+
+        // ひらがな
+        あ: "--.--",
+        い: ".-",
+        う: "..-",
+        え: "-.---",
+        お: ".-...",
+        ぁ: "--.--",
+        ぃ: ".-",
+        ぅ: "..-",
+        ぇ: "-.---",
+        ぉ: ".-...",
+        か: ".-..",
+        き: "-.-..",
+        く: "...-",
+        け: "-.--",
+        こ: "----",
+        さ: "-.-.-",
+        し: "--.-.",
+        す: "---.-",
+        せ: ".---.",
+        そ: "---.",
+        た: "-.",
+        ち: "..-.",
+        つ: ".--.",
+        っ: ".--.",
+        て: ".-.--",
+        と: "..-..",
+        な: ".-.",
+        に: "-.-.",
+        ぬ: "....",
+        ね: "--.-",
+        の: "..--",
+        は: "-...",
+        ひ: "--..-",
+        ふ: "--..",
+        へ: ".",
+        ほ: "-..",
+        ま: "-..-",
+        み: "..-.-",
+        む: "-",
+        め: "-...-",
+        も: "-..-.",
+        や: ".--",
+        ゆ: "-..--",
+        よ: "--",
+        ゃ: ".--",
+        ゅ: "-..--",
+        ょ: "--",
+        ら: "...",
+        り: "--.",
+        る: "-.--.",
+        れ: "---",
+        ろ: ".-.-",
+        わ: "-.-",
+        ゐ: ".-..-",
+        ゑ: ".--..",
+        を: ".---",
+        ん: ".-.-.",
+        ー: ".--.-",
+        "」": ".-.-..",
+        "?": "..--..",
+        "？": "..--..",
+        "゛": "..",
+        "゜": "..--.",
+        ".": ".-.-.-",
+
+        // カタカナ（大文字、半角も含む）
+        ア: "--.--",
+        イ: ".-",
+        ウ: "..-",
+        エ: "-.---",
+        オ: ".-...",
+        ァ: "--.--",
+        ィ: ".-",
+        ゥ: "..-",
+        ェ: "-.---",
+        ォ: ".-...",
+        カ: ".-..",
+        キ: "-.-..",
+        ク: "...-",
+        ケ: "-.--",
+        コ: "----",
+        サ: "-.-.-",
+        シ: "--.-.",
+        ス: "---.-",
+        セ: ".---.",
+        ソ: "---.",
+        タ: "-.",
+        チ: "..-.",
+        ツ: ".--.",
+        ッ: ".--.",
+        テ: ".-.--",
+        ト: "..-..",
+        ナ: ".-.",
+        ニ: "-.-.",
+        ヌ: "....",
+        ネ: "--.-",
+        ノ: "..--",
+        ハ: "-...",
+        ヒ: "--..-",
+        フ: "--..",
+        ヘ: ".",
+        ホ: "-..",
+        マ: "-..-",
+        ミ: "..-.-",
+        ム: "-",
+        メ: "-...-",
+        モ: "-..-.",
+        ヤ: ".--",
+        ユ: "-..--",
+        ヨ: "--",
+        ャ: ".--",
+        ュ: "-..--",
+        ョ: "--",
+        ラ: "...",
+        リ: "--.",
+        ル: "-.--.",
+        レ: "---",
+        ロ: ".-.-",
+        ワ: "-.-",
+        ヰ: ".-..-",
+        ヱ: ".--..",
+        ヲ: ".---",
+        ン: ".-.-.",
+        ー: ".--.-",
+        "、": ".-.-.-",
+        // 半角カタカナ
+        ｱ: "--.--",
+        ｲ: ".-",
+        ｳ: "..-",
+        ｴ: "-.---",
+        ｵ: ".-...",
+        ｶ: ".-..",
+        ｷ: "-.-..",
+        ｸ: "...-",
+        ｹ: "-.--",
+        ｺ: "----",
+        ｻ: "-.-.-",
+        ｼ: "--.-.",
+        ｽ: "---.-",
+        ｾ: ".---.",
+        ｿ: "---.",
+        ﾀ: "-.",
+        ﾁ: "..-.",
+        ﾂ: ".--.",
+        ﾃ: ".-.--",
+        ﾄ: "..-..",
+        ﾅ: ".-.",
+        ﾆ: "-.-.",
+        ﾇ: "....",
+        ﾈ: "--.-",
+        ﾉ: "..--",
+        ﾊ: "-...",
+        ﾋ: "--..-",
+        ﾌ: "--..",
+        ﾍ: ".",
+        ﾎ: "-..",
+        ﾏ: "-..-",
+        ﾐ: "..-.-",
+        ﾑ: "-",
+        ﾒ: "-...-",
+        ﾓ: "-..-.",
+        ﾔ: ".--",
+        ﾕ: "-..--",
+        ﾖ: "--",
+        ﾗ: "...",
+        ﾘ: "--.",
+        ﾙ: "-.--.",
+        ﾚ: "---",
+        ﾛ: ".-.-",
+        ﾜ: "-.-",
+        ｦ: ".---",
+        ﾝ: ".-.-.",
+        "､": ".-.-.",
+      }
+
+      // 小文字を大文字に変換する関数
+      function toUpperCase(text) {
+        return text.toUpperCase()
+      }
+
+      // モールス信号を生成
+      function textToMorse(text) {
+        let result = ""
+        let i = 0
+
+        while (i < text.length) {
+          let found = false
+
+          // 特別な符号のチェック
+          for (const key in specialMorseMap) {
+            if (text.startsWith(key, i)) {
+              result += specialMorseMap[key] + " "
+              i += key.length
+              found = true
+              break
+            }
+          }
+
+          // 特別な符号が見つからなかった場合は通常の処理
+          if (!found) {
+            const char = text[i].toUpperCase()
+            if (morseCodeMap[char]) {
+              result += morseCodeMap[char] + " "
+            }
+            i++
+          }
+        }
+
+        return result.trim()
+        //return toUpperCase(text).split('').map(char => morseCodeMap[char] || '').join(' ');
+      }
+
+      function convertText(text) {
+        let output = ""
+        for (const char of text) {
+          output += dakutenMap[char] || char
+        }
+        return output
+      }
+
+      // 英単語リスト
+      const englishWords = [
+        "America",
+        "American",
+        "God",
+        "Mrs",
+        "Pullman",
+        "Washington",
+        "Yugoslavia",
+        "about",
+        "above",
+        "across",
+        "act",
+        "add",
+        "after",
+        "again",
+        "against",
+        "age",
+        "ago",
+        "agricultural",
+        "air",
+        "all",
+        "alone",
+        "along",
+        "already",
+        "also",
+        "always",
+        "am",
+        "among",
+        "amounting",
+        "an",
+        "and",
+        "another",
+        "answer",
+        "any",
+        "anything",
+        "appear",
+        "are",
+        "arm",
+        "army",
+        "around",
+        "arrangement",
+        "as",
+        "ask",
+        "at",
+        "back",
+        "bank",
+        "bassoonist",
+        "be",
+        "became",
+        "because",
+        "become",
+        "been",
+        "before",
+        "began",
+        "begin",
+        "being",
+        "beleaguered",
+        "believe",
+        "best",
+        "better",
+        "between",
+        "big",
+        "bill",
+        "bimonthly",
+        "body",
+        "book",
+        "both",
+        "bourgeoisie",
+        "boy",
+        "breakfast",
+        "bring",
+        "broadcast",
+        "brought",
+        "built",
+        "business",
+        "but",
+        "by",
+        "call",
+        "came",
+        "camouflage",
+        "can",
+        "candidacy",
+        "car",
+        "care",
+        "carry",
+        "case",
+        "catalogues",
+        "cause",
+        "certificate",
+        "chance",
+        "change",
+        "chaperone",
+        "chautauqua",
+        "child",
+        "children",
+        "circumstances",
+        "city",
+        "clemency",
+        "close",
+        "color",
+        "come",
+        "coming",
+        "commercial",
+        "company",
+        "condition",
+        "consider",
+        "contained",
+        "continue",
+        "convenience",
+        "conversation",
+        "cost",
+        "could",
+        "country",
+        "court",
+        "cover",
+        "cry",
+        "cut",
+        "cynosure",
+        "dear",
+        "defamatory",
+        "demand",
+        "demonstrated",
+        "department",
+        "depending",
+        "deportment",
+        "depository",
+        "did",
+        "die",
+        "discovered",
+        "do",
+        "doctor",
+        "does",
+        "dollar",
+        "done",
+        "dont",
+        "door",
+        "down",
+        "dress",
+        "drop",
+        "during",
+        "each",
+        "early",
+        "educational",
+        "either",
+        "end",
+        "enough",
+        "epidemics",
+        "even",
+        "evening",
+        "ever",
+        "every",
+        "exceptional",
+        "exchange",
+        "eye",
+        "face",
+        "fact",
+        "fall",
+        "family",
+        "far",
+        "father",
+        "federated",
+        "federation",
+        "feet",
+        "felt",
+        "few",
+        "fight",
+        "figure",
+        "fill",
+        "find",
+        "fine",
+        "fire",
+        "first",
+        "five",
+        "follow",
+        "for",
+        "force",
+        "forwarded",
+        "found",
+        "foundation",
+        "four",
+        "friend",
+        "friendship",
+        "from",
+        "front",
+        "full",
+        "furnishing",
+        "garden",
+        "gave",
+        "geography",
+        "get",
+        "girl",
+        "give",
+        "given",
+        "go",
+        "gone",
+        "good",
+        "got",
+        "government",
+        "graduation",
+        "grandfather",
+        "great",
+        "green",
+        "had",
+        "half",
+        "hand",
+        "handkerchief",
+        "handsome",
+        "happen",
+        "happy",
+        "hard",
+        "has",
+        "have",
+        "he",
+        "head",
+        "hear",
+        "heard",
+        "heart",
+        "held",
+        "help",
+        "her",
+        "here",
+        "heretofore",
+        "herewith",
+        "herself",
+        "hieroglyphics",
+        "high",
+        "him",
+        "himself",
+        "his",
+        "hold",
+        "home",
+        "homestead",
+        "hope",
+        "horse",
+        "hour",
+        "house",
+        "household",
+        "how",
+        "however",
+        "human",
+        "hundred",
+        "husband",
+        "idea",
+        "if",
+        "ill",
+        "immediately",
+        "important",
+        "in",
+        "increase",
+        "independent",
+        "indescribable",
+        "influenza",
+        "ingredients",
+        "interest",
+        "interview",
+        "into",
+        "intoxicating",
+        "investment",
+        "is",
+        "it",
+        "its",
+        "just",
+        "keep",
+        "kept",
+        "kind",
+        "king",
+        "knew",
+        "know",
+        "knowledge",
+        "labor",
+        "lady",
+        "land",
+        "large",
+        "last",
+        "late",
+        "laugh",
+        "law",
+        "learn",
+        "least",
+        "leave",
+        "left",
+        "lemonade",
+        "less",
+        "let",
+        "letter",
+        "lie",
+        "life",
+        "light",
+        "like",
+        "line",
+        "little",
+        "live",
+        "long",
+        "look",
+        "lost",
+        "love",
+        "low",
+        "made",
+        "make",
+        "man",
+        "many",
+        "mark",
+        "marry",
+        "matter",
+        "may",
+        "me",
+        "mean",
+        "men",
+        "might",
+        "mile",
+        "mind",
+        "misplaced",
+        "miss",
+        "moment",
+        "money",
+        "month",
+        "more",
+        "morning",
+        "morphologist",
+        "most",
+        "mother",
+        "move",
+        "movement",
+        "much",
+        "must",
+        "my",
+        "myself",
+        "name",
+        "national",
+        "near",
+        "need",
+        "new",
+        "newspaper",
+        "next",
+        "night",
+        "nightgown",
+        "no",
+        "nor",
+        "not",
+        "note",
+        "nothing",
+        "now",
+        "number",
+        "of",
+        "off",
+        "office",
+        "often",
+        "old",
+        "on",
+        "once",
+        "one",
+        "only",
+        "open",
+        "or",
+        "order",
+        "other",
+        "our",
+        "out",
+        "over",
+        "overlooked",
+        "own",
+        "paper",
+        "parallelogram",
+        "part",
+        "party",
+        "pass",
+        "pay",
+        "people",
+        "perhaps",
+        "permanently",
+        "person",
+        "phosphorus",
+        "picture",
+        "place",
+        "plant",
+        "pleasurable",
+        "pneumonia",
+        "point",
+        "poor",
+        "possible",
+        "power",
+        "predetermined",
+        "present",
+        "president",
+        "preventing",
+        "price",
+        "produce",
+        "production",
+        "property",
+        "prosperity",
+        "pseudonym",
+        "public",
+        "put",
+        "question",
+        "quite",
+        "ramshackle",
+        "rather",
+        "reach",
+        "read",
+        "real",
+        "reason",
+        "receive",
+        "red",
+        "regulation",
+        "remain",
+        "remember",
+        "requested",
+        "responsible",
+        "rest",
+        "result",
+        "return",
+        "rheumatism",
+        "right",
+        "river",
+        "road",
+        "room",
+        "round",
+        "run",
+        "said",
+        "same",
+        "sat",
+        "saw",
+        "say",
+        "schedules",
+        "school",
+        "sea",
+        "second",
+        "see",
+        "seem",
+        "seen",
+        "serve",
+        "set",
+        "several",
+        "shall",
+        "she",
+        "ship",
+        "short",
+        "should",
+        "show",
+        "side",
+        "since",
+        "sir",
+        "slenderize",
+        "small",
+        "smile",
+        "so",
+        "some",
+        "something",
+        "somewhere",
+        "son",
+        "soon",
+        "sort",
+        "sound",
+        "speak",
+        "specification",
+        "stand",
+        "start",
+        "state",
+        "step",
+        "still",
+        "stockholders",
+        "stood",
+        "stop",
+        "story",
+        "strawberry",
+        "subscription",
+        "such",
+        "sun",
+        "supervisor",
+        "supply",
+        "suppose",
+        "sure",
+        "system",
+        "table",
+        "take",
+        "taken",
+        "talk",
+        "tell",
+        "temperature",
+        "ten",
+        "that",
+        "the",
+        "their",
+        "them",
+        "themselves",
+        "then",
+        "there",
+        "these",
+        "they",
+        "thing",
+        "think",
+        "this",
+        "those",
+        "three",
+        "through",
+        "throughout",
+        "thus",
+        "till",
+        "time",
+        "to",
+        "today",
+        "together",
+        "told",
+        "too",
+        "took",
+        "toward",
+        "town",
+        "toxicology",
+        "tree",
+        "tried",
+        "trigonometry",
+        "true",
+        "try",
+        "turn",
+        "twenty",
+        "two",
+        "under",
+        "until",
+        "up",
+        "upon",
+        "us",
+        "use",
+        "very",
+        "visionary",
+        "voice",
+        "voluptuous",
+        "wait",
+        "walk",
+        "wall",
+        "want",
+        "war",
+        "was",
+        "watch",
+        "water",
+        "way",
+        "we",
+        "week",
+        "well",
+        "went",
+        "were",
+        "what",
+        "when",
+        "where",
+        "whether",
+        "which",
+        "white",
+        "who",
+        "whole",
+        "whom",
+        "whose",
+        "why",
+        "wide",
+        "will",
+        "wind",
+        "wish",
+        "with",
+        "without",
+        "wonder",
+        "wonderful",
+        "word",
+        "work",
+        "workmanship",
+        "world",
+        "would",
+        "write",
+        "wrong",
+        "year",
+        "yes",
+        "yet",
+        "you",
+        "young",
+        "your",
+      ]
+
+      function getRandomItem(arr) {
+        return arr[Math.floor(Math.random() * arr.length)]
+      }
+      function generateEnglishTelegraph() {
+        const charLimit = parseInt(document.getElementById("charLimit").value)
+
+        const subjects = [
+          "I",
+          "You",
+          "We",
+          "They",
+          "He",
+          "She",
+          "The ship",
+          "My friend",
+          "The teacher",
+          "A student",
+          "The soldier",
+          "The scientist",
+          "My brother",
+          "The cat",
+          "Our team",
+          "The company",
+          "The pilot",
+          "A musician",
+          "The dog",
+          "An artist",
+          "This machine",
+          "That child",
+          "Everyone",
+          "Nobody",
+          "Some people",
+          "The crew",
+          "The captain",
+          "My parents",
+          "His sister",
+          "Their group",
+          "One man",
+          "A woman",
+          "The mayor",
+          "Our leader",
+          "Your neighbor",
+          "The engine",
+          "My phone",
+          "The document",
+          "The sun",
+          "The moon",
+          "The car",
+          "The train",
+          "The plane",
+          "A doctor",
+          "An engineer",
+          "A designer",
+          "The athlete",
+          "My uncle",
+          "Her mother",
+          "The boss",
+          "That player",
+        ]
+
+        const verbs_SV = [
+          "run",
+          "wait",
+          "swim",
+          "arrived",
+          "died",
+          "fall",
+          "rise",
+          "stand",
+          "go",
+          "come",
+          "sit",
+          "remain",
+          "escape",
+          "appear",
+          "disappear",
+          "travel",
+          "jump",
+          "walk",
+          "fly",
+          "stay",
+          "exist",
+          "occur",
+          "move",
+          "return",
+          "happen",
+          "sleep",
+          "sneeze",
+          "cry",
+          "laugh",
+          "shout",
+          "smile",
+          "fade",
+          "grow",
+          "float",
+          "explode",
+          "shine",
+          "function",
+          "start",
+          "end",
+          "develop",
+          "operate",
+          "continue",
+          "collapse",
+          "wander",
+          "dance",
+          "hesitate",
+          "expire",
+          "advance",
+          "linger",
+        ]
+
+        const verbs_SVC = [
+          "is",
+          "was",
+          "seems",
+          "becomes",
+          "looks",
+          "feels",
+          "appears",
+          "sounds",
+          "smells",
+          "tastes",
+          "gets",
+          "turns",
+          "remains",
+          "stays",
+          "grows",
+          "proves",
+          "seemed",
+          "became",
+          "felt",
+          "seems to be",
+          "looks like",
+          "appeared to be",
+          "turned into",
+          "was regarded as",
+          "is considered",
+          "has become",
+          "gets labeled as",
+          "was named",
+          "remains unchanged",
+          "ends up",
+          "results in",
+          "acts like",
+          "behaves like",
+          "looks odd",
+          "feels cold",
+          "gets better",
+          "stays quiet",
+          "turns red",
+          "gets worse",
+          "was declared",
+          "seems true",
+          "looks clean",
+          "remains helpful",
+          "gets tired",
+          "feels fine",
+          "is wonderful",
+          "is confusing",
+          "feels sad",
+          "gets ready",
+        ]
+
+        const complements = [
+          "happy",
+          "a doctor",
+          "ready",
+          "beautiful",
+          "sad",
+          "strong",
+          "weak",
+          "angry",
+          "calm",
+          "a teacher",
+          "a pilot",
+          "a soldier",
+          "confused",
+          "hopeful",
+          "healthy",
+          "tired",
+          "rich",
+          "poor",
+          "helpful",
+          "useless",
+          "famous",
+          "unknown",
+          "a leader",
+          "their captain",
+          "the manager",
+          "an engineer",
+          "the winner",
+          "prepared",
+          "a hero",
+          "a musician",
+          "excited",
+          "serious",
+          "polite",
+          "brave",
+          "friendly",
+          "loyal",
+          "the best",
+          "the worst",
+          "ready to go",
+          "alone",
+          "together",
+          "responsible",
+          "a writer",
+          "grateful",
+          "nervous",
+          "a student",
+          "a visitor",
+          "the host",
+          "an expert",
+        ]
+
+        const verbs_SVO = [
+          "see",
+          "like",
+          "build",
+          "carry",
+          "found",
+          "read",
+          "write",
+          "send",
+          "call",
+          "watch",
+          "fix",
+          "repair",
+          "paint",
+          "open",
+          "close",
+          "move",
+          "bring",
+          "hold",
+          "catch",
+          "grab",
+          "make",
+          "hit",
+          "drive",
+          "deliver",
+          "drop",
+          "buy",
+          "sell",
+          "eat",
+          "drink",
+          "draw",
+          "push",
+          "pull",
+          "shake",
+          "install",
+          "remove",
+          "create",
+          "design",
+          "shoot",
+          "throw",
+          "pack",
+          "wash",
+          "clean",
+          "kiss",
+          "hug",
+          "help",
+          "touch",
+          "pick",
+          "choose",
+        ]
+
+        const objects = [
+          "a ship",
+          "the town",
+          "some food",
+          "a book",
+          "the girl",
+          "the car",
+          "the report",
+          "the plan",
+          "a message",
+          "the document",
+          "the door",
+          "a letter",
+          "his coat",
+          "the window",
+          "the computer",
+          "a robot",
+          "the phone",
+          "a pencil",
+          "a table",
+          "a chair",
+          "a picture",
+          "a camera",
+          "the wall",
+          "a suitcase",
+          "the key",
+          "my shoes",
+          "her bag",
+          "the machine",
+          "a cake",
+          "his name",
+          "the game",
+          "a cup",
+          "a clock",
+          "the bell",
+          "the newspaper",
+          "some water",
+          "a song",
+          "the engine",
+          "the house",
+          "a hammer",
+          "the road",
+          "a ring",
+          "the box",
+          "the engine",
+          "a story",
+          "his hand",
+          "a watch",
+          "a map",
+        ]
+
+        const verbs_SVOO = [
+          "give",
+          "send",
+          "offer",
+          "bring",
+          "show",
+          "lend",
+          "teach",
+          "pay",
+          "buy",
+          "make",
+          "tell",
+          "pass",
+          "promise",
+          "get",
+          "read",
+          "throw",
+          "hand",
+          "deliver",
+          "recommend",
+          "cook",
+          "write",
+          "sell",
+          "assign",
+          "suggest",
+          "award",
+          "forward",
+          "explain",
+          "present",
+          "email",
+          "fax",
+          "donate",
+          "serve",
+          "announce",
+          "allocate",
+          "submit",
+          "return",
+          "introduce",
+          "report",
+          "leave",
+          "transfer",
+          "appoint",
+          "mail",
+        ]
+
+        const indirectObjects = [
+          "me",
+          "you",
+          "him",
+          "her",
+          "them",
+          "us",
+          "my mother",
+          "the manager",
+          "our teacher",
+          "his friend",
+          "the students",
+          "a guest",
+          "a client",
+          "the officer",
+          "the engineer",
+          "the team",
+          "my father",
+          "their neighbor",
+          "your boss",
+          "a visitor",
+          "the children",
+          "the pilot",
+          "our friend",
+          "his cousin",
+          "their son",
+          "the doctor",
+          "the nurse",
+          "my wife",
+          "her husband",
+          "our captain",
+          "his mentor",
+          "my uncle",
+          "a stranger",
+          "the driver",
+          "the seller",
+          "the buyer",
+          "my partner",
+          "the assistant",
+          "the director",
+          "the mayor",
+          "a volunteer",
+          "the leader",
+          "my brother",
+          "a lawyer",
+          "the artist",
+          "an actor",
+          "the chef",
+          "the neighbor",
+        ]
+
+        const verbs_SVOC = [
+          "make",
+          "call",
+          "keep",
+          "consider",
+          "name",
+          "elect",
+          "appoint",
+          "paint",
+          "label",
+          "declare",
+          "choose",
+          "find",
+          "imagine",
+          "think",
+          "designate",
+          "select",
+          "rate",
+          "mark",
+          "proclaim",
+          "recognize",
+          "judge",
+          "describe",
+          "identify",
+          "view",
+          "believe",
+          "leave",
+          "adopt",
+          "classify",
+          "note",
+          "render",
+          "state",
+          "represent",
+          "promote",
+          "honor",
+          "vote",
+          "address",
+          "assign",
+          "register",
+          "rank",
+          "tag",
+          "list",
+          "send",
+          "install",
+          "rename",
+          "acknowledge",
+          "translate",
+          "display",
+        ]
+
+        const objectComplements = [
+          "a hero",
+          "their leader",
+          "happy",
+          "angry",
+          "a fool",
+          "a winner",
+          "a helper",
+          "the best",
+          "the worst",
+          "the captain",
+          "a star",
+          "an expert",
+          "a villain",
+          "a king",
+          "a queen",
+          "the speaker",
+          "a legend",
+          "our friend",
+          "the champion",
+          "the manager",
+          "a hero of war",
+          "a brave man",
+          "an idol",
+          "a singer",
+          "a musician",
+          "a cook",
+          "a partner",
+          "a guide",
+          "the protector",
+          "the mentor",
+          "a traitor",
+          "the boss",
+          "a guest",
+          "a fighter",
+          "a teacher",
+          "a patient",
+          "a guardian",
+          "an inventor",
+          "a poet",
+          "a designer",
+          "a writer",
+          "a listener",
+          "a suspect",
+          "an artist",
+          "a neighbor",
+          "a worker",
+          "a diplomat",
+        ]
+
+        const shipNames = [
+          "TITANIC",
+          "YAMATO",
+          "KAGA",
+          "USS MISSOURI",
+          "BISMARCK",
+          "QE2",
+        ]
+
+        const templates = [
+          () => `${getRandomItem(subjects)} ${getRandomItem(verbs_SV)}.`,
+          () =>
+            `${getRandomItem(subjects)} ${getRandomItem(verbs_SVC)} ${getRandomItem(complements)}.`,
+          () =>
+            `${getRandomItem(subjects)} ${getRandomItem(verbs_SVO)} ${getRandomItem(objects)}.`,
+          () =>
+            `${getRandomItem(subjects)} ${getRandomItem(verbs_SVOO)} ${getRandomItem(indirectObjects)} ${getRandomItem(objects)}.`,
+          () =>
+            `${getRandomItem(subjects)} ${getRandomItem(verbs_SVOC)} ${getRandomItem(objects)} ${getRandomItem(objectComplements)}.`,
+        ]
+
+        let messageBody = ""
+        while (messageBody.length < charLimit) {
+          const sentence = getRandomItem(templates)()
+          if (messageBody.length + sentence.length + 1 < charLimit) {
+            messageBody += sentence + " "
+          } else {
+            break
+          }
+        }
+        messageBody = messageBody.trim()
+
+        const wordCount = messageBody.split(/\s+/).filter(Boolean).length
+        const date = Math.floor(Math.random() * 31) + 1
+        const hour = Math.floor(Math.random() * 12) + 1
+        const minute = Math.floor(Math.random() * 60)
+        const suffix = Math.random() < 0.5 ? "S" : "M"
+        const shipName = getRandomItem(shipNames)
+        const line1 = `NR ${Math.floor(Math.random() * 99) + 1} ${shipName} ${wordCount} ${date} ${hour} ${minute}${suffix} [BT]`
+
+        const split1 = Math.ceil(messageBody.length / 3)
+        const split2 = Math.ceil((messageBody.length * 2) / 3)
+        const line2 = messageBody.substring(0, split1).trim()
+        const line3 = messageBody.substring(split1, split2).trim()
+        const line4 = messageBody.substring(split2).trim()
+
+        //fullMessage = `HR HR\n${line1}\n${line2}\n${line3}\n${line4} [AR]`
+        //fullMessage = `HR HR ${line1} ${line2} ${line3} ${line4} [AR]`
+				fullMessage = `HR HR\n${line1}\n${line2}\n${line3} ${line4} [AR]`
+
+        document.getElementById("inputText").value = fullMessage
+      }
+
+      document.getElementById("generateEnglishButton").onclick =
+        generateEnglishTelegraph
+      document.getElementById("generateJapaneseButton").onclick =
+        generateTelegraph
+
+      function stopMorse() {
+        if (!isPlaying) return
+        isPlaying = false
+        morseTimeouts.forEach((id) => clearTimeout(id))
+        morseTimeouts = []
+
+        if (currentAudioCtx) {
+          currentAudioCtx.close()
+          currentAudioCtx = null
+        }
+
+        const playBtn = document.getElementById("playButton")
+        const stopBtn = document.getElementById("stopButton")
+        const indicator = document.getElementById("morseIndicator")
+        playBtn.disabled = false
+        playBtn.textContent = "再生"
+        stopBtn.disabled = true
+        indicator.textContent = ""
+        indicator.style.animation = "none"
+
+        const textArea = document.getElementById("inputText")
+        textArea.setSelectionRange(0, 0)
+      }
+    
+function textToMorseWithMap(text) {
+  let morseArr = [];
+  let map = [];
+  let i = 0;
+
+  const converted = convertText(text); // 濁点など変換済みテキスト
+
+  while (i < converted.length) {
+    let found = false;
+
+    // 特殊記号の処理
+    for (const key in specialMorseMap) {
+      if (converted.startsWith(key, i)) {
+        morseArr.push(specialMorseMap[key]);
+        map.push(i);
+        i += key.length;
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      const char = converted[i].toUpperCase();
+
+      // 空白はスキップ（無音挿入はdownloadWav内で判断）
+      if (char === " ") {
+        i++;
+        continue;
+      }
+
+      const morse = morseCodeMap[char];
+      if (morse) {
+        morseArr.push(morse);
+        map.push(i);
+      }
+      i++;
+    }
+  }
+
+  return {
+    morseArr: morseArr,
+    map: map,
+  };
+}
+
+
+
+function downloadWav() {
+  const textArea = document.getElementById("inputText");
+  const originalText = textArea.value;
+  const text = convertText(originalText.toUpperCase());
+  const { morseArr, map } = textToMorseWithMap(text);
+
+  const speed = parseFloat(document.getElementById("speedRange").value);
+  const freq = parseFloat(document.getElementById("freqRange").value);
+  //speed=speed+20;
+  const dotTime = (60 / (speed * 50)) * 10;
+  const sampleRate = 44100;
+
+  let samples = [];
+
+  for (let i = 0; i < morseArr.length; i++) {
+    const symbol = morseArr[i];
+    const currentChar = text[map[i]];
+    const nextChar = text[map[i + 1]];
+
+    // シンボル音（. や -）
+    for (const c of symbol) {
+      const duration = c === "." ? dotTime : dotTime * 3;
+      const toneSamples = Math.floor(duration * sampleRate);
+
+      for (let j = 0; j < toneSamples; j++) {
+        const t = j / sampleRate;
+        samples.push(0.5 * Math.sin(2 * Math.PI * freq * t));
+      }
+
+      // 記号間無音（1ドット）
+      const interSymbolSilence = Math.floor(dotTime * sampleRate);
+      for (let j = 0; j < interSymbolSilence; j++) {
+        samples.push(0.0);
+      }
+    }
+
+    // 文字間／単語間 無音（3または7ドット）
+    if (i < morseArr.length - 1) {
+      const current = map[i];
+      const next = map[i + 1];
+      const isSpaceBetween = text.slice(current + 1, next).includes(" ");
+
+      const silenceDuration = isSpaceBetween ? dotTime * 7 : dotTime * 3;
+      const silenceSamples = Math.floor(silenceDuration * sampleRate);
+      for (let j = 0; j < silenceSamples; j++) {
+        samples.push(0.0);
+      }
+    }
+  }
+
+  // バッファに書き込み
+  const buffer = new AudioContext().createBuffer(1, samples.length, sampleRate);
+  const channelData = buffer.getChannelData(0);
+  for (let i = 0; i < samples.length; i++) {
+    channelData[i] = samples[i];
+  }
+
+  // WAV形式に変換してダウンロード
+  const wavData = bufferToWav(buffer);
+  const blob = new Blob([wavData], { type: "audio/wav" });
+
+  const now = new Date();
+  const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
+  const langType = /[ぁ-んァ-ン]/.test(text) ? "JP" : "EN";
+  const fileName = `morse_${timestamp}_${langType}_CPM${speed}.wav`;
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+
+      // バッファをWAV形式に変換する関数（簡略化）
+      function bufferToWav(buffer) {
+        const numOfChannels = buffer.numberOfChannels
+        const sampleRate = buffer.sampleRate
+        const samples = buffer.length
+        const byteRate = sampleRate * numOfChannels * 2
+        const blockAlign = numOfChannels * 2
+        const bufferLength = 44 + samples * blockAlign
+
+        const wavArray = new ArrayBuffer(bufferLength)
+        const view = new DataView(wavArray)
+        let offset = 0
+
+        // ヘッダの書き込み
+        writeString(view, offset, "RIFF")
+        offset += 4
+        view.setUint32(offset, bufferLength - 8, true)
+        offset += 4
+        writeString(view, offset, "WAVE")
+        offset += 4
+        writeString(view, offset, "fmt ")
+        offset += 4
+        view.setUint32(offset, 16, true)
+        offset += 4 // フォーマットチャンクの長さ
+        view.setUint16(offset, 1, true)
+        offset += 2 // PCMフォーマット
+        view.setUint16(offset, numOfChannels, true)
+        offset += 2
+        view.setUint32(offset, sampleRate, true)
+        offset += 4
+        view.setUint32(offset, byteRate, true)
+        offset += 4
+        view.setUint16(offset, blockAlign, true)
+        offset += 2
+        view.setUint16(offset, 16, true)
+        offset += 2 // サンプルサイズ
+
+        // データチャンクの書き込み
+        writeString(view, offset, "data")
+        offset += 4
+        view.setUint32(offset, samples * blockAlign, true)
+        offset += 4
+
+        // サンプルデータの書き込み
+        for (let i = 0; i < samples; i++) {
+          const sample = buffer.getChannelData(0)[i]
+          view.setInt16(offset, sample * 32767, true)
+          offset += 2
+        }
+
+        return new Uint8Array(wavArray)
+      }
+
+      // 文字列をUint8Arrayに書き込むヘルパー関数
+      function writeString(view, offset, string) {
+        for (let i = 0; i < string.length; i++) {
+          view.setUint8(offset + i, string.charCodeAt(i))
+        }
+      }
+
+
+
+
+
+function playMorse() {
+  stopMorse(); // 前回の再生を止める
+
+  if (isPlaying) return;
+  isPlaying = true;
+  morseTimeouts = [];
+
+  const playBtn = document.getElementById("playButton");
+  const stopBtn = document.getElementById("stopButton");
+  const indicator = document.getElementById("morseIndicator");
+  const textArea = document.getElementById("inputText");
+
+  playBtn.disabled = true;
+  playBtn.textContent = "再生中...";
+  stopBtn.disabled = false;
+
+  const originalText = textArea.value;
+  const text = convertText(originalText.toUpperCase());
+  const { morseArr, map } = textToMorseWithMap(text);
+
+  const speed = parseFloat(document.getElementById("speedRange").value);
+  const freq = parseFloat(document.getElementById("freqRange").value);
+  const dotTime = (60 / ((speed + 50) * 50)) * 10; // ドット長（秒）
+
+  currentAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  let time = currentAudioCtx.currentTime;
+
+  indicator.style.animation = "blink 0.5s ease-in-out infinite alternate";
+
+  function addBeep(duration, symbol, charIndex) {
+    if (!isPlaying) return;
+    const osc = currentAudioCtx.createOscillator();
+    const gain = currentAudioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq, time);
+    gain.gain.setValueAtTime(1, time);
+    gain.gain.setValueAtTime(0, time + duration);
+    osc.connect(gain);
+    gain.connect(currentAudioCtx.destination);
+    osc.start(time);
+    osc.stop(time + duration);
+
+    const showTime = (time - currentAudioCtx.currentTime) * 1000;
+    const timeoutId = setTimeout(() => {
+      if (!isPlaying) return;
+      textArea.focus();
+      textArea.setSelectionRange(charIndex, charIndex + 1);
+      indicator.textContent = symbol;
+    }, showTime);
+    morseTimeouts.push(timeoutId);
+
+    time += duration;
+  }
+
+  function addSilence(duration) {
+    time += duration;
+  }
+
+  for (let i = 0; i < morseArr.length; i++) {
+    const letter = morseArr[i];
+    const charIndex = map[i] || 0;
+    const currentChar = text[charIndex];
+    const nextChar = text[map[i + 1]];
+
+    // ドット・ダッシュ音と記号間無音（1ドット）
+    for (let j = 0; j < letter.length; j++) {
+      const symbol = letter[j];
+      if (symbol === ".") {
+        addBeep(dotTime, ".", charIndex);
+      } else if (symbol === "-") {
+        addBeep(dotTime * 3, "-", charIndex);
+      }
+      addSilence(dotTime); // 記号間の無音
+    }
+
+    // 単語間（スペースを挟む）なら7ドット、そうでなければ3ドット
+    if (i < morseArr.length - 1) {
+      if (currentChar === "/" || nextChar === "/") {
+        addSilence(dotTime * 7); // 単語間
+      } else {
+        addSilence(dotTime * 3); // 文字間
+      }
+    }
+  }
+
+  // 再生終了後のリセット処理
+  const endTimeout = setTimeout(() => {
+    if (!isPlaying) return;
+    isPlaying = false;
+    morseTimeouts = [];
+    playBtn.disabled = false;
+    playBtn.textContent = "再生";
+    stopBtn.disabled = true;
+    indicator.textContent = "";
+    indicator.style.animation = "none";
+    currentAudioCtx.close();
+    currentAudioCtx = null;
+  }, (time - currentAudioCtx.currentTime) * 1000 + 500);
+  morseTimeouts.push(endTimeout);
+}
+
+    function getCPM() {
+      return parseInt(document.getElementById('speedRange').value);
+    }
+
+function generateMorseSamples(morse, sampleRate = 44100, freq = 600, cpm = 100) {
+      cpm=cpm+5;
+      const dot = (60 / (50 * cpm))*10; // 50単位/文字基準
+      const dash = dot * 3;
+      const gap = dot;
+      const letterGap = dot * 3;
+      const wordGap = dot * 7;
+      const samples = [];
+		  freq = parseFloat(document.getElementById("freqRange").value);
+
+
+      function tone(duration) {
+        const count = duration * sampleRate;
+        for (let i = 0; i < count; i++) {
+          const t = Math.sin(2 * Math.PI * freq * i / sampleRate);
+          samples.push(t);
+        }
+      }
+
+      function silence(duration) {
+        const count = duration * sampleRate;
+        for (let i = 0; i < count; i++) samples.push(0);
+      }
+
+      for (let char of morse) {
+        if (char === '.') {
+          tone(dot); silence(gap);
+        } else if (char === '-') {
+          tone(dash); silence(gap);
+        } else if (char === ' ') {
+          silence(letterGap);
+        } else if (char === '/') {
+          silence(wordGap);
+        }
+      }
+
+      return samples;
+    }
+
+    function downloadMP3() {
+      const text = document.getElementById('inputText').value;
+      const morse = textToMorse(text);
+      const cpm = getCPM();
+      const samples = generateMorseSamples(morse, 44100, 600, cpm);
+      const mp3 = encodeMP3(samples);
+      const url = URL.createObjectURL(mp3);
+      const a = document.createElement("a");
+      
+   const now = new Date();
+  const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
+  const langType = /[ぁ-んァ-ン]/.test(text) ? "JP" : "EN";
+  const fileName = `morse_${timestamp}_${langType}_CPM${cpm}.mp3`;     
+      
+      a.href = url;
+      a.download = fileName;
+      a.click();
+    }
+
+    function encodeMP3(samples, sampleRate = 44100, kbps = 128) {
+      const mp3Encoder = new lamejs.Mp3Encoder(1, sampleRate, kbps);
+      const blockSize = 1152;
+      const mp3Data = [];
+
+      for (let i = 0; i < samples.length; i += blockSize) {
+        const block = samples.slice(i, i + blockSize);
+        const buffer = new Int16Array(block.map(n => Math.max(-1, Math.min(1, n)) * 32767));
+        const mp3buf = mp3Encoder.encodeBuffer(buffer);
+        if (mp3buf.length > 0) mp3Data.push(mp3buf);
+      }
+
+      const flush = mp3Encoder.flush();
+      if (flush.length > 0) mp3Data.push(flush);
+
+      return new Blob(mp3Data, { type: 'audio/mp3' });
+    }
+      function clearText() {
+        const textarea = document.getElementById("inputText")
+        textarea.value = ""
+        localStorage.removeItem("savedText")
+        localStorage.removeItem("cursorPosition")
+        stopMorse()
+      }
+      //let audioCtx = null; // AudioContext をグローバル化して制御
+      // 辞書を定義（名前、駅名、列車番号、住所、本文など）
+
+      var dictionary = {
+        names: [
+          "わたなべけんじ",
+          "たかはしゆうすけ",
+          "いとうまり",
+          "さとうあきこ",
+          "たむらだいすけ",
+          "きたむらあい",
+          "みやけけん",
+          "やまぐちゆうき",
+          "おおたけたけし",
+          "ほうせんたくま",
+          "かとうあや",
+          "おおわきしんや",
+          "おおつかひろき",
+          "なかむらゆり",
+          "にしおかこうた",
+          "わかばやしこうへい",
+          "たけだちほ",
+          "しみずみさと",
+          "まつもとたくみ",
+          "あきやまつばさ",
+          "さとうさやか",
+          "おおやまあい",
+          "しんどうけん",
+          "よこたやすひろ",
+          "あきおかまり",
+          "ふじおかたくや",
+          "えんどうゆうた",
+          "やまぐちなおき",
+          "はせべともや",
+          "すずきまゆ",
+          "さくらや",
+          "ひまわりや",
+          "ゆうきわん",
+          "おおたけしょっぷ",
+          "みなとあん",
+          "かんなえん",
+          "みずきこう",
+          "しろゆり",
+          "あやめや",
+          "あおばや",
+          "うめしん",
+          "りんどう",
+          "かつらあん",
+          "しらゆきや",
+          "つばきまる",
+          "とりはな",
+          "くろまるや",
+          "りゅうきんや",
+          "いずみうら",
+          "ふじわらや",
+        ],
+        stations: [
+          "ほっかいどうすすきのむせん",
+          "さっぽろむせん",
+          "なごやむせん",
+          "おおさかむせん",
+          "はこだてむせん",
+          "しずおかむせん",
+          "みやざきむせん",
+          "ふくおかむせん",
+          "いわてけんむせん",
+          "いちかわむせん",
+          "きょうとむせん",
+          "おおつむせん",
+          "あいちけんむせん",
+          "こうべむせん",
+          "まつやまむせん",
+          "わかやまむせん",
+          "おおやまむせん",
+          "しおばらむせん",
+          "おうみむせん",
+          "たくさんむせん",
+          "あおもりむせん",
+          "さくらむせん",
+          "しらおいむせん",
+          "ゆうきむせん",
+          "むろらんむせん",
+        ],
+        addresses: [
+          "さっぽろしみなみじょうあたり",
+          "おおさかしほんまち",
+          "ほっかいどうすすきのむせん",
+          "いわきしおおみやまちよんばん",
+          "はこだてしきたみなみまち",
+          "みやざきしこうほう",
+          "ふくおかしおおきんぐ",
+          "いちかわしあしびな",
+          "しずおかしとおじ",
+          "ゆうきしおおおか",
+          "ふたばしこめい",
+          "みよししまつだ",
+          "きょうとしきた",
+          "あいちけんあいあい",
+          "まつやましごお",
+        ],
+        messages: {
+          line1: [
+            "しぜんは　ことばをもたないが　すべてをつたえてくれる　ひかり　かぜ　みず　いのち　そのすがたが　こたえになる",
+            "はるのひざしは　あたたかく　ゆきどけのしたから　あたらしいいのちが　そっとめをさます",
+            "たいようのひかりが　けわしいやまをてらすとき　こころのなかにも　ひかりがさしこむ",
+            "まいあさ　そらをみあげる　くもがながれ　とりがとび　けさもいのちが　ここにあることをしる",
+            "こどもがえがおで　はなにてをのばすとき　しぜんは　そのえがおをみて　またいきるちからをくれる",
+            "ゆきはしずかにおちて　すべてをつつむ　けがれをけして　すべてをふりだしにもどすように",
+            "さざなみのこえに　みみをすませば　ひとのいかりや　かなしみさえ　やさしくとかしてくれる",
+            "もりのざわめきは　いのちのうた　きぎは　けむりのようなこえで　しずかにかたりかけてくる",
+            "いちりんのはなが　つちからうまれ　そらをむく　そのけなげさに　こころをうたれる",
+            "あめあがりのにじは　しぜんからのメッセージ　つらいあとのよろこびは　まっていればきっとくる",
+            "かわのながれは　ときをこえて　けっしておなじすがたにはもどらない　だからこそ　いまがたいせつ",
+            "いのちのぬくもりは　どうぶつたちのめにもやどる　ひともまた　そのなかのひとつ",
+            "しぜんは　おしえない　しかしたしかに　すべてをしらせてくれる　こころのめでみれば",
+            "おちばのじゅうたんを　ふみしめてあるくとき　じぶんもまた　しぜんのいちぶだときづく",
+            "やまのちょうじょうにたつと　ちいさなじぶんにきづく　そのちいささが　ほんとうのつよさになる",
+            "あさつゆは　しらないあいだに　はなにそっとふれている　やさしさは　いつもさりげない",
+            "たいようにてらされた　きのみのつやに　しぜんのせいめいのつよさをみる",
+            "よるのしずけさに　つきのひかりがやどるとき　ひともまた　ふりかえり　こころをととのえる",
+            "けはいにきづく　そのしゅんかんに　こころがひらかれ　しぜんとつながっていく",
+            "みずのながれをみつめるだけで　こころのおくの　ざわめきがしずまっていく",
+            "かぜがふいて　きがゆれ　こもれびがゆれる　それだけで　いのちはつながっているとおもう",
+            "つちは　すべてをうけいれて　またはぐくむ　そのおおきさに　にんげんはいつもまなぶ",
+            "しんりんのしずけさは　にんげんのこころをうつしだすかがみ",
+            "しぜんとともにあるとき　じぶんがじぶんらしくいられる",
+            "とりのうたごえが　あさをつれてくる　それはめざめのしるし",
+            "やまもかわも　けっしておなじけしきはない　すべてはいまだけのもの",
+            "そらのいろは　にんげんのこころのうつろいを　そっとうつしだす",
+            "どうぶつたちのまなざしには　けがれがない　そのせいけつさに　にんげんはまけている",
+            "きせつは　やってくるのではなく　きづけばそこにある",
+            "ほしのまたたきが　よるのしじまに　ちいさなゆめをはこぶ",
+          ],
+          line2: [
+            "しぜんは　いきをしている　それにきづいたとき　このちきゅうとつながっているとおもう",
+            "もりのしずけさに　しらずしらず　いかりもなみだも　ながされていく",
+            "そらをみあげて　ためいきをひとつ　くもがわらって　それをつれていってくれた",
+            "みどりのひかりが　こころのつかれをいやしてくれる　ただそこにいるだけでいい",
+            "すなをふむあしあとも　やがてなみにけされる　だからいまをたいせつに",
+            "しぜんをこわすのは　いともたやすい　でもなおすのは　とてもながいじかんがかかる",
+            "いのちは　あたえられたもの　それをたいせつにすることが　おれいになる",
+            "けしてうばうためでなく　ともにいきるために　しぜんはある",
+            "とりのさえずりが　こころのこおりをとかす　こえなきせかいに　ほんとうのことばがある",
+            "きのかげで　ひとやすみするとき　それだけで　いのちはみたされる",
+            "たにまのしめりけは　あらたなはなのめを　そっとはぐくむ",
+            "やまのみちに　ちいさなはながさいていた　だれもみていなくても　いのちはそこにある",
+            "ひとりであるくとき　しぜんはともだちになってくれる",
+            "まいにちかわるそらのいろ　それは　きせきのつみかさね",
+            "どうぶつたちのいとなみは　しずかで　でもたしかで　いのちをまもっている",
+            "たいようのぬくもりは　すべてにひとしくふりそそぐ",
+            "ひかりのなかに　あんしんがあり　かげのなかに　まなびがある",
+            "つちのにおいは　おもいでをよびおこす　にんげんのきおくも　しぜんのなかにある",
+            "こどもたちのえがおが　しぜんとふれあうとき　ほんとうのえがおになる",
+            "なにげないいちにちのなかに　しぜんは　しずかにしゅくふくをおとしている",
+            "おおきなきのしたで　あめをしのいだことを　わすれてはいけない",
+            "いのちあるものは　みな　なにかのやくわりをもっている",
+            "みどりがすくなくなれば　こころもかわいていく",
+            "しぜんとともに　わらい　しぜんとともに　ないていい",
+            "いちばんなかよくなれるのは　ことばのいらないともだち",
+            "しんりんのうたが　きこえるとき　こころはうたをおぼえる",
+            "ゆうやけのそらに　いのちがやすらぐじかんがながれていく",
+            "しんこきゅうひとつで　みどりのなかにとけこめる",
+            "たいせつなのは　すぐそばにあるけしきと　そのけしきにきづけるじぶん",
+            "しぜんがきえていくことは　じぶんをうしなうこととおなじ",
+          ],
+          line3: [
+            "あさひがのぼるとき　すべてのいのちが　またはじまる　それだけでありがたい",
+            "どうぶつのひとみは　かがみ　ひとのこころをうつしだす",
+            "はなのかおりは　おもいでもよびおこす　しぜんはきおくのつづき",
+            "おおきなそらに　だいじょうぶといわれたきがした　そのひとことですくわれるときがある",
+            "きせつがうつろうたびに　じぶんもまたすこしずつかわっている",
+            "しろいつきが　やまをてらすよる　なにもいわずに　まもってくれている",
+            "もりのこえにみみをかたむければ　かならずこころのおとがきこえてくる",
+            "きぎのなみだは　めにみえないけれど　ちをはしり　いのちをつないでいる",
+            "いちりんのこすもすが　かぜになびく　それだけで　ひかりがみちる",
+            "あめにぬれたはなは　いっそううつくしく　つよくなる",
+            "たいようとともにめをさまし　ほしとともにねむる　それがほんとうのくらしかた",
+            "どうぶつたちがやすらぐばしょは　ひともまた　やすらげるばしょ",
+            "せんたくものが　そらをゆらす　しぜんとともにあるくらし",
+            "あおいそらに　はねをひろげるとりのように　こころもとびたつ",
+            "なみのおとは　こころのざわめきをしずめてくれる",
+            "まいにちのようにあるしぜんのけしき　それがほんとうはいちばんのたからもの",
+            "しぜんのなかでは　どんなちいさないのちも　おおきなやくわりをもっている",
+            "つきはしずかに　すべてをうけいれてくれる　そのやさしさに　ひとはならいたい",
+            "けっしてうらぎらないのが　しぜんのぬくもり",
+            "しろいはなは　けがれなきこころのしるし",
+            "たいふうのあとのそらが　いちばんきれいなのは　なみだのあとのえがおとおなじ",
+            "けしきは　こころをうつしだすえ",
+            "はながわらうと　こどももわらう　やさしさはつたわっていく",
+            "しぜんといっしょに　いきをあわせると　いのちがたしかにかんじられる",
+            "いちにちのはじまりに　ひかりをあびる　それだけで　ありがとうといいたくなる",
+            "やまにのぼると　かぜがほめてくれるきがする",
+            "ちいさなせいぶつたちが　しずかにせかいをささえている",
+            "しんりんよくは　からだだけでなく　こころもあらってくれる",
+            "たいようも　みずも　はなも　ちも　すべてつながっているから　いまがある",
+            "しぜんをまもることは　じぶんをまもること",
+          ],
+        },
+      }
+
+      // 和数字に変換する関数（修正）
+      function toJapaneseNumber(num) {
+        const kanjiNumbers = [
+          "〇",
+          "一",
+          "二",
+          "三",
+          "四",
+          "五",
+          "六",
+          "七",
+          "八",
+          "九",
+        ]
+        if (num <= 9) {
+          return kanjiNumbers[num]
+        } else {
+          let result = ""
+          let digits = num.toString().split("")
+          for (let i = 0; i < digits.length; i++) {
+            result += kanjiNumbers[parseInt(digits[i])]
+          }
+          return result
+        }
+      }
+
+      // 列車番号を生成する関数
+      function generateTrainNumber() {
+        const firstPart =
+          /*toJapaneseNumber*/ Math.floor(Math.random() * 990) + 10 // 和数字2桁から3桁
+        const middlePart = toJapaneseNumber(Math.floor(Math.random() * 13)) // 和数字0から12
+        const lastPart = toJapaneseNumber(Math.floor(Math.random() * 60)) // 和数字0から59
+        const suffix = Math.random() < 0.5 ? "せ" : "こ" // 「せ」か「こ」をランダムに選択
+
+        return `${firstPart} ${suffix}${toJapaneseNumber(Math.floor(Math.random() * 13))}、${toJapaneseNumber(Math.floor(Math.random() * 60))}`
+      }
+
+      // 電報のテンプレート
+      var telegraphTemplate = {
+        station_phrase: "{station} {train_number}、\n{address} [BT]",
+        line1: "[ほれ] {line1_message}",
+        line2: "{line2_message}",
+        line3: "{line3_message} [らた]",
+      }
+
+      // ランダムに辞書から選択する関数
+      function getRandomItem(arr) {
+        return arr[Math.floor(Math.random() * arr.length)]
+      }
+
+      function clearText() {
+        document.getElementById("inputText").value = ""
+      }
+
+      function loadContent() {
+        const width = window.innerWidth
+        const container = document.getElementById("content")
+
+        if (width <= 768) {
+          // スマートフォン表示の場合
+          <!--
+          container.innerHTML = `  
+                    <!--
+                    <h4>スマートフォン版</h4>
+                    -->
+                `
+          -->
+        } else {
+          <!--
+          container.innerHTML = `
+             <!--
+                    <h4>PC版</h4>
+                    -->
+                `
+          -->
+        }
+      }
+
+      function getRandomItem(arr) {
+        return arr[Math.floor(Math.random() * arr.length)]
+      }
+
+      function generateTelegraph() {
+        const charLimit = parseInt(document.getElementById("charLimit").value)
+
+        var name = convertText(getRandomItem(dictionary["names"]))
+        var station = convertText(getRandomItem(dictionary["stations"]))
+        var trainNumber = convertText(generateTrainNumber())
+        var address = convertText(getRandomItem(dictionary["addresses"]))
+        var line1_message = convertText(
+          getRandomItem(dictionary["messages"]["line1"]),
+        )
+        var line2_message = convertText(
+          getRandomItem(dictionary["messages"]["line2"]),
+        )
+        var line3_message = convertText(
+          getRandomItem(dictionary["messages"]["line3"]),
+        )
+
+        var totalLength =
+          line1_message.length + line2_message.length + line3_message.length
+        while (totalLength < 50) {
+          line1_message +=
+            " " + convertText(getRandomItem(dictionary["messages"]["line1"]))
+          line2_message +=
+            " " + convertText(getRandomItem(dictionary["messages"]["line2"]))
+          line3_message +=
+            " " + convertText(getRandomItem(dictionary["messages"]["line3"]))
+          totalLength =
+            line1_message.length + line2_message.length + line3_message.length
+        }
+        while (totalLength > charLimit) {
+          line1_message = line1_message.substring(0, line1_message.length - 1)
+          line2_message = line2_message.substring(0, line2_message.length - 1)
+          line3_message = line3_message.substring(0, line3_message.length - 1)
+          totalLength =
+            line1_message.length + line2_message.length + line3_message.length
+        }
+
+        let fullMessage = line1_message + line2_message + line3_message
+        let modifiedMessage = ""
+        for (let i = 0; i < fullMessage.length; i++) {
+          modifiedMessage += fullMessage[i]
+          if ((i + 1) % 60 === 0 && i !== fullMessage.length - 1) {
+            modifiedMessage += "？"
+          }
+        }
+
+        line1_message = modifiedMessage.substring(
+          0,
+          Math.ceil(modifiedMessage.length / 3),
+        )
+        line2_message = modifiedMessage.substring(
+          line1_message.length,
+          line1_message.length + Math.ceil(modifiedMessage.length / 3),
+        )
+        line3_message = modifiedMessage.substring(
+          line1_message.length + line2_message.length,
+        )
+
+        const telegraphTemplate = {
+          station_phrase: "{station} {train_number}、\n{address} [BT]",
+          line1: "[ほれ] {line1_message}",
+          line2: "{line2_message}",
+          line3: "{line3_message} [らた]",
+        }
+
+        var telegraph = telegraphTemplate["station_phrase"]
+          .replace("{station}", station)
+          .replace("{train_number}", trainNumber)
+          .replace("{address}", address)
+
+        telegraph +=
+          "\n" +
+          telegraphTemplate["line1"].replace("{line1_message}", line1_message)
+        telegraph +=
+          "\n" +
+          telegraphTemplate["line2"].replace("{line2_message}", line2_message)
+        telegraph +=
+          "\n" +
+          telegraphTemplate["line3"].replace("{line3_message}", line3_message)
+
+        var messageLength = telegraph.length
+        var japaneseNumber = convertText(messageLength.toString())
+        telegraph = "、" + japaneseNumber + " " + telegraph
+
+        document.getElementById("inputText").value = `${telegraph}`
+      }
+
+      //document.getElementById("generateButton").onclick = generateTelegraph
+    document.getElementById("generateEnglishButton").onclick =
+      generateEnglishTelegraph
+    document.getElementById("generateJapaneseButton").onclick =
+      generateTelegraph
+    //document.getElementById("generateEnglishButton").onclick = generateEnglishTelegraph;
+  window.onload = function () {
+    restoreTextState();
+    const isJapanese = Math.random() < 0.5; // 50%の確率で和文か欧文を選ぶ
+    if (isJapanese) {
+      generateTelegraph(); // 和文
+    } else {
+      generateEnglishTelegraph(); // 欧文
+    }
+  };
+      
+      
+      
+    </script>
+  </body>
+</html>
